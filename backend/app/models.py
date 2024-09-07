@@ -10,6 +10,7 @@ class UserBase(SQLModel):
     is_active: bool = True
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
+    credit: int = Field(default=3, ge=0)
 
 
 # Properties to receive via API on creation
@@ -38,6 +39,8 @@ class UpdatePassword(SQLModel):
     current_password: str = Field(min_length=8, max_length=40)
     new_password: str = Field(min_length=8, max_length=40)
 
+class UpdateCredit(SQLModel):
+    credit: int = Field(ge=0)
 
 # Database model, database table inferred from class name
 class User(UserBase, table=True):
