@@ -6,6 +6,7 @@ from canopy.models.data_models import Messages, UserMessage, AssistantMessage, S
 
 from app.api.deps import SessionDep, CurrentUser
 from app.models import UpdateCredit, User
+from app import crud
 
 router = APIRouter()
 
@@ -25,7 +26,6 @@ def chat_endpoint(
     message: str,
     session: SessionDep,
     current_user: CurrentUser,
-    updateCredit: UpdateCredit
 ) -> str:
     """
     Chat with the assistant and decrease the user's credit.
@@ -33,20 +33,11 @@ def chat_endpoint(
     # Get the current user from the database
     user = session.get(User, current_user.id)
 
-    #todo: handle credit functions on deps.py
-    
     # Check if the user has enough credits
-    if user.credit < updateCredit.credit:
+    if user.credit < 1:
         raise HTTPException(status_code=400, detail="Insufficient credits")
     
-    # Deduct the credit
-    user.credit -= updateCredit.credit
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    
-    # Generate the chat response
+    crud.decrease_user_credit(session=session, user=user, amount=1)
     response = chat(message, chatEngine)
     
     return response
-

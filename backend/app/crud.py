@@ -52,3 +52,11 @@ def create_item(*, session: Session, item_in: ItemCreate, owner_id: uuid.UUID) -
     session.commit()
     session.refresh(db_item)
     return db_item
+
+def decrease_user_credit(*, session: Session, user: User, amount: int) -> User:
+    user = session.query(User).filter(User.id == user.id).with_for_update().one()
+    user.credit -= amount
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
