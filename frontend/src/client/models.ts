@@ -11,6 +11,12 @@ export type HTTPValidationError = {
   detail?: Array<ValidationError>
 }
 
+export type FileCreate = {
+  index_name: string,
+  namespace?: string | null,
+  file: File
+}
+
 export type ItemCreate = {
   title: string
   description?: string | null
