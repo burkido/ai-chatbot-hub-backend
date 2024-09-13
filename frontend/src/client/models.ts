@@ -11,7 +11,7 @@ export type HTTPValidationError = {
   detail?: Array<ValidationError>
 }
 
-export type FileCreate = {
+export type DocumentCreate = {
   index_name: string,
   namespace?: string | null,
   file: File

@@ -18,6 +18,7 @@ import type {
   ItemPublic,
   ItemsPublic,
   ItemUpdate,
+  DocumentCreate
 } from "./models"
 
 export type TDataLoginAccessToken = {
@@ -406,6 +407,29 @@ export type TDataDeleteItem = {
   id: string
 }
 
+export type TDataUploadDocument = {
+  requestBody: DocumentCreate
+}
+
+export class DocumentService {
+  /**
+   * Send documents to API
+   * @throws ApiError
+  */
+ public static sendDocuments(data: TDataUploadDocument): CancelablePromise<Message> {
+    const { requestBody } = data
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/api/v1/documents/",
+      body: requestBody,
+      mediaType: "application/json",
+      errors: {
+        422: `Validation Error`,
+      },
+    })
+  }
+}
+
 export class ItemsService {
   /**
    * Read Items
@@ -513,5 +537,29 @@ export class ItemsService {
         422: `Validation Error`,
       },
     })
+  }
+}
+
+
+export class FileUploadService {
+  /**
+   * Upload Document
+   * Upload a file (PDF).
+   * @returns Message Successful Response
+   * @throws ApiError
+   */
+  public static uploadDocument(
+    data: { requestBody: FormData }, // Use FormData for file upload
+  ): CancelablePromise<Message> {
+    const { requestBody } = data;
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/api/v1/chat/upload-document",
+      body: requestBody,
+      mediaType: "multipart/form-data", // Required for file uploads
+      errors: {
+        422: `Validation Error`,
+      },
+    });
   }
 }
