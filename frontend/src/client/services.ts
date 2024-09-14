@@ -549,14 +549,13 @@ export class FileUploadService {
    * @throws ApiError
    */
   public static uploadDocument(
-    data: { requestBody: FormData }, // Use FormData for file upload
+    data: { formData: FormData },
   ): CancelablePromise<Message> {
-    const { requestBody } = data;
     return __request(OpenAPI, {
       method: "POST",
-      url: "/api/v1/chat/upload-document",
-      body: requestBody,
-      mediaType: "multipart/form-data", // Required for file uploads
+      url: "/api/v1/chat/upload-document/",
+      body: data.formData,
+      mediaType: "multipart/form-data",
       errors: {
         422: `Validation Error`,
       },

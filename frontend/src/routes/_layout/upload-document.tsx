@@ -21,6 +21,7 @@ import {
   Text,
   Spinner,
   Tooltip,
+  CircularProgress,
 } from '@chakra-ui/react';
 import { AttachmentIcon } from '@chakra-ui/icons';
 import { useMutation } from '@tanstack/react-query';
@@ -36,6 +37,7 @@ function UploadPDF() {
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,7 +70,7 @@ function UploadPDF() {
 
   const mutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      return FileUploadService.uploadDocument({ requestBody: formData });
+      return FileUploadService.uploadDocument({ formData });
     },
     onSuccess: () => {
       toast({
@@ -79,7 +81,8 @@ function UploadPDF() {
       });
       setFile(null);
       setFileName('');
-      onClose();
+      setUploadProgress(0);
+      setIsLoading(false);
     },
     onError: () => {
       toast({
@@ -88,6 +91,8 @@ function UploadPDF() {
         duration: 3000,
         isClosable: true,
       });
+      setUploadProgress(0);
+      setIsLoading(false);
     },
   });
 
@@ -118,15 +123,27 @@ function UploadPDF() {
 
   const confirmUpload = async () => {
     setIsLoading(true);
+    onClose(); // Close the popup immediately after confirming the upload
 
     const formData = new FormData();
     formData.append('file', file as Blob);
     formData.append('indexName', indexName);
     formData.append('namespace', namespace);
 
-    mutation.mutate(formData);
-    setIsLoading(false);
-    onClose(); // Close the popup after confirming the upload
+    // Simulate upload progress
+    const simulateUploadProgress = () => {
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 10;
+        setUploadProgress(progress);
+        if (progress >= 100) {
+          clearInterval(interval);
+          mutation.mutate(formData);
+        }
+      }, 300);
+    };
+
+    simulateUploadProgress();
   };
 
   const handleContainerClick = () => {
@@ -192,8 +209,12 @@ function UploadPDF() {
             </Flex>
           </Tooltip>
         </FormControl>
-        <Button colorScheme="blue" onClick={handleUpload}>
-          Upload
+        <Button colorScheme="blue" onClick={handleUpload} isDisabled={isLoading}>
+          {isLoading ? (
+            <CircularProgress isIndeterminate color="blue.500" size="24px" />
+          ) : (
+            'Upload'
+          )}
         </Button>
       </Flex>
 

@@ -113,6 +113,7 @@ async def parse_pdf(
     file: UploadFile = File(...)
 ):
     try:
+        print("Index name: ", index_name, "Namespace: ", namespace, "Title: ", title, "Author: ", author, "Source: ", source)
         file_path = f"temp_{file.filename}"
         with open(file_path, "wb") as f:
             f.write(await file.read())
