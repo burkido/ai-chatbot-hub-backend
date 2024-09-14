@@ -38,7 +38,7 @@ class JSONProcessor:
         
         # Write the transformed data to a JSON file
         with open(output_file, 'w') as file:
-            json.dump(transformed_entry, file, indent=2)
+            json.dump(output_data, file, indent=2)
 
 class Parser:
     def __init__(self, file_path, title, author, source):
