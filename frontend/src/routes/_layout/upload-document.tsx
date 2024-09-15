@@ -38,6 +38,9 @@ function UploadPDF() {
   const [fileName, setFileName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
+  const [source, setSource] = useState('');
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,9 +100,9 @@ function UploadPDF() {
   });
 
   const handleUpload = async () => {
-    if (!indexName) {
+    if (!indexName || !title || !author || !source) {
       toast({
-        title: 'Please fill the index name',
+        title: 'Please fill all required fields',
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -127,8 +130,11 @@ function UploadPDF() {
 
     const formData = new FormData();
     formData.append('file', file as Blob);
-    formData.append('indexName', indexName);
+    formData.append('index_name', indexName.toLowerCase().replace(/\s+/g, '-'));
     formData.append('namespace', namespace);
+    formData.append('title', title);
+    formData.append('author', author);
+    formData.append('source', source);
 
     // Simulate upload progress
     const simulateUploadProgress = () => {
@@ -157,7 +163,7 @@ function UploadPDF() {
       <Flex direction="column" alignItems="flex-start">
         <FormControl id="indexName" mb={4} isRequired>
           <FormLabel>Index Name</FormLabel>
-          <Tooltip label="Please fill the index name" isDisabled={!!indexName} hasArrow>
+          <Tooltip label="Index name will be converted to lowercase and spaces will be replaced by hyphens" hasArrow>
             <Input
               type="text"
               value={indexName}
@@ -172,6 +178,30 @@ function UploadPDF() {
             type="text"
             value={namespace}
             onChange={(e) => setNamespace(e.target.value)}
+          />
+        </FormControl>
+        <FormControl id="title" mb={4} isRequired>
+          <FormLabel>Title</FormLabel>
+          <Input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </FormControl>
+        <FormControl id="author" mb={4} isRequired>
+          <FormLabel>Author</FormLabel>
+          <Input
+            type="text"
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
+          />
+        </FormControl>
+        <FormControl id="source" mb={4} isRequired>
+          <FormLabel>Source</FormLabel>
+          <Input
+            type="text"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
           />
         </FormControl>
         <FormControl id="file" mb={4} isRequired>
