@@ -76,7 +76,7 @@ def chat(new_message: str, chat_engine: ChatEngineDep) -> str:
     response = assistant_response, messages + [AssistantMessage(content=assistant_response)]
     return response[0]
 
-@router.post("/chat", response_model=str)
+@router.post("/", response_model=str)
 def chat_endpoint(
     chatEngine: ChatEngineDep, 
     message: str,
@@ -104,16 +104,19 @@ class DocumentRequest(BaseModel):
     source: str
 
 @router.post("/upload-document/")
-async def parse_pdf(
-    index_name: str = Form(default="a"),
+async def upload_document(
+    index_name: str = Form(),
     namespace: str = Form(None),
-    title: str = Form(default="a"),
-    author: str = Form(default="a"),
-    source: str = Form(default="a"),
+    title: str = Form(),
+    author: str = Form(),
+    source: str = Form(),
     file: UploadFile = File(...)
 ):
     try:
+        index_name = index_name.replace(" ", "-").lower()
+
         print("Index name: ", index_name, "Namespace: ", namespace, "Title: ", title, "Author: ", author, "Source: ", source)
+        
         file_path = f"temp_{file.filename}"
         with open(file_path, "wb") as f:
             f.write(await file.read())
@@ -139,6 +142,8 @@ async def parse_pdf(
         if not any(name.endswith(index_name) for name in list_canopy_indexes()):
             print("Creating a new canopy index")
             kb.create_canopy_index()
+        else:
+            print("Index ${index_name} already exists")
 
         kb.connect()
         print("Connected to the knowledge base!")
@@ -155,11 +160,10 @@ async def parse_pdf(
 
         for i in tqdm(range(0, len(documents), batch_size)):
             print(f"Upserting documents {i} to {i+batch_size}")
-            kb.upsert(documents[i: i+batch_size])
+            kb.upsert(documents=documents[i: i+batch_size], namespace=namespace)
+        
 
         return {"message": "Successfully parsed the PDF file and added it to the knowledge base"}
-
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
