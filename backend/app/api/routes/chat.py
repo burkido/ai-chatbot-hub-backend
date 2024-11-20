@@ -1,16 +1,20 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Form
-
-from app.api.deps import ChatEngineDep
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Depends
 
 from pydantic import BaseModel
 
-from canopy.models.data_models import Messages, UserMessage, AssistantMessage, SystemMessage
+from app.api.deps import ChatEngineDep
 
-from app.api.deps import SessionDep, CurrentUser
-from app.models import User
 from app import crud
+from app.api.deps import SessionDep, CurrentUser
+from app.models.user import User
+from app.models.chat import ChatMessage, ChatRequest
 
 import pandas as pd
+
+from typing import List
+from langchain_openai import ChatOpenAI
+from langchain.schema import SystemMessage, HumanMessage, AIMessage
+
 
 import fitz
 import os
@@ -66,22 +70,40 @@ class Parser:
             'metadata': metadata
         }
 
-def chat(new_message: str, chat_engine: ChatEngineDep) -> str:
-    messages = [
-        SystemMessage(content="You are a friendly and compassionate virtual doctor. Your goal is to assist people with their health questions. Always respond with kindness and empathy. If you're unsure about an answer, simply say, 'I'm not sure, but I'll do my best to help you.' If someone tries to chat with you as if you're a regular person, kindly remind them, 'I'm a bot, but I'm here to assist you with any health-related concerns.' Your purpose is to provide helpful and supportive guidance."),
-        UserMessage(content=new_message)
-    ]
-    chat_response = chat_engine.chat(messages=messages)
-    assistant_response = chat_response.choices[0].message.content
-    response = assistant_response, messages + [AssistantMessage(content=assistant_response)]
-    return response[0]
+# Dependency for ChatOpenAI instance
+def get_chat_openai() -> ChatOpenAI:
+    return ChatOpenAI(
+        openai_api_key=os.getenv("OPENAI_API_KEY"),
+        temperature=0.7,
+        model="gpt-3.5-turbo"
+    )
+
+def chat(new_message: str, chat_model: ChatOpenAI, history: List[ChatMessage]) -> str:
+    langchain_messages = []
+    for msg in history:
+        if msg.role == "system":
+            langchain_messages.append(SystemMessage(content=msg.content))
+        elif msg.role == "user":
+            langchain_messages.append(HumanMessage(content=msg.content))
+        elif msg.role == "assistant":
+            langchain_messages.append(AIMessage(content=msg.content))
+        else:
+            raise ValueError(f"Unknown role: {msg.role}")
+    
+    # Add the new user message
+    langchain_messages.append(HumanMessage(content=new_message))
+
+    # Get the assistant's response
+    response = chat_model(langchain_messages)
+    
+    return response.content
 
 @router.post("/", response_model=str)
 def chat_endpoint(
-    chatEngine: ChatEngineDep, 
-    message: str,
+    chat_request: ChatRequest,
     session: SessionDep,
     current_user: CurrentUser,
+    chat_model: ChatOpenAI = Depends(get_chat_openai)
 ) -> str:
     """
     Chat with the assistant and decrease the user's credit.
@@ -93,8 +115,11 @@ def chat_endpoint(
     if user.credit < 1:
         raise HTTPException(status_code=400, detail="Insufficient credits")
     
+    # Decrease the user's credit
     crud.decrease_user_credit(session=session, user=user, amount=1)
-    response = chat(message, chatEngine)
+    
+    # Get the chat response
+    response = chat(chat_request.message, chat_model, chat_request.history)
     
     return response
 
