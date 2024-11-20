@@ -1,4 +1,4 @@
-import logging
+import os, json, fitz, logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -115,3 +115,51 @@ def verify_password_reset_token(token: str) -> str | None:
         return str(decoded_token["sub"])
     except InvalidTokenError:
         return None
+
+class JSONProcessor:
+    def __init__(self, data):
+        self.data = data
+
+    def to_json(self, output_file):
+        entry = self.data
+        transformed_entry = {
+            "id": entry["id"],
+            "text": entry["text"],
+            "source": entry["source"],
+            "metadata": {
+                "title": entry["metadata"]["title"],
+                "author": entry["metadata"]["author"]
+            }
+        }
+
+        output_data = [transformed_entry]
+        
+        # Write the transformed data to a JSON file
+        with open(output_file, 'w') as file:
+            json.dump(output_data, file, indent=2)
+
+class Parser:
+    def __init__(self, file_path, title, author, source):
+        self.file_path = file_path
+        self.title = title
+        self.author = author
+        self.source = source
+        self.pdf_data = self.read_pdf()
+
+    def read_pdf(self):
+        pdf_content = ''
+        with fitz.open(self.file_path) as file:
+            for page in file:
+                pdf_content += page.get_text().strip()
+
+        metadata = {
+            'title': self.title,
+            'author': self.author
+        }
+
+        return {
+            'id': os.path.basename(self.file_path).split('.')[0],
+            'text': pdf_content,
+            'source': self.source,
+            'metadata': metadata
+        }
