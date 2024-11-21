@@ -139,8 +139,8 @@ class JSONProcessor:
             json.dump(output_data, file, indent=2)
 
 class Parser:
-    def __init__(self, file_path, title, author, source):
-        self.file_path = file_path
+    def __init__(self, file, title, author, source):
+        self.file = file
         self.title = title
         self.author = author
         self.source = source
@@ -148,17 +148,18 @@ class Parser:
 
     def read_pdf(self):
         pdf_content = ''
-        with fitz.open(self.file_path) as file:
-            for page in file:
+        with fitz.open(self.file.file) as doc:  # Access the file attribute of UploadFile
+            for page in doc:
                 pdf_content += page.get_text().strip()
 
         metadata = {
             'title': self.title,
-            'author': self.author
+            'author': self.author,
+            'source': self.source
         }
 
         return {
-            'id': os.path.basename(self.file_path).split('.')[0],
+            'id': os.path.basename(self.file.filename).split('.')[0],  # Using self.file.filename for the name
             'text': pdf_content,
             'source': self.source,
             'metadata': metadata

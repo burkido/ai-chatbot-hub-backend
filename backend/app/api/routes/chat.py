@@ -1,14 +1,18 @@
+import os
+
 from fastapi import APIRouter, HTTPException, Form, Depends
-from pydantic import BaseModel
-from app.api.deps import ChatEngineDep
+
 from app import crud
 from app.api.deps import SessionDep, CurrentUser
-from app.models.user import User
-from app.models.chat import ChatMessage, ChatRequest
+from app.models.models import User, ChatMessage, ChatRequest
+
 from typing import List
+
 from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage, AIMessage
-import os
+from langchain_pinecone import Pinecone
+
+#from pinecone import Pinecone, ServerlessSpec
 
 router = APIRouter()
 
@@ -20,7 +24,25 @@ def get_chat_openai() -> ChatOpenAI:
         model="gpt-4o"
     )
 
-def chat(new_message: str, chat_model: ChatOpenAI, history: List[ChatMessage]) -> str:
+def get_vectorstore() -> Pinecone:
+    index_name = "your-index-name"  # Replace with your Pinecone index name
+    return Pinecone(index_name=index_name)
+
+def augment_prompt(query: str, vectorstore: Pinecone):
+    # get top 3 results from knowledge base
+    results = vectorstore.similarity_search(query, k=3)
+    # get the text from the results
+    source_knowledge = "\n".join([x.page_content for x in results])
+    # feed into an augmented prompt
+    augmented_prompt = f"""Using the contexts below, answer the query.
+
+    Contexts:
+    {source_knowledge}
+
+    Query: {query}"""
+    return augmented_prompt
+
+def chat(new_message: str, chat_model: ChatOpenAI, history: List[ChatMessage], vectorstore: Pinecone) -> str:
     langchain_messages = []
     for msg in history:
         if msg.role == "system":
@@ -35,6 +57,10 @@ def chat(new_message: str, chat_model: ChatOpenAI, history: List[ChatMessage]) -
     # Add the new user message
     langchain_messages.append(HumanMessage(content=new_message))
 
+    # Augment the prompt with RAG
+    augmented_prompt = augment_prompt(new_message, vectorstore)
+    langchain_messages.append(HumanMessage(content=augmented_prompt))
+
     # Get the assistant's response
     response = chat_model(langchain_messages)
     
@@ -45,7 +71,8 @@ def chat_endpoint(
     chat_request: ChatRequest,
     session: SessionDep,
     current_user: CurrentUser,
-    chat_model: ChatOpenAI = Depends(get_chat_openai)
+    chat_model: ChatOpenAI = Depends(get_chat_openai),
+    vectorstore: Pinecone = Depends(get_vectorstore)
 ) -> str:
     """
     Chat with the assistant and decrease the user's credit.
@@ -61,6 +88,6 @@ def chat_endpoint(
     crud.decrease_user_credit(session=session, user=user, amount=1)
     
     # Get the chat response
-    response = chat(chat_request.message, chat_model, chat_request.history)
+    response = chat(chat_request.message, chat_model, chat_request.history, vectorstore)
     
     return response

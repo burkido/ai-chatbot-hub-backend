@@ -37,7 +37,6 @@ function UploadPDF() {
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [source, setSource] = useState('');
@@ -84,7 +83,6 @@ function UploadPDF() {
       });
       setFile(null);
       setFileName('');
-      setUploadProgress(0);
       setIsLoading(false);
     },
     onError: () => {
@@ -94,7 +92,6 @@ function UploadPDF() {
         duration: 3000,
         isClosable: true,
       });
-      setUploadProgress(0);
       setIsLoading(false);
     },
   });
@@ -141,7 +138,6 @@ function UploadPDF() {
       let progress = 0;
       const interval = setInterval(() => {
         progress += 10;
-        setUploadProgress(progress);
         if (progress >= 100) {
           clearInterval(interval);
           mutation.mutate(formData);
