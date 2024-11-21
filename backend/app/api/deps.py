@@ -11,14 +11,7 @@ from sqlmodel import Session
 from app.core import security
 from app.core.config import settings
 from app.core.db import engine
-from app.models import TokenPayload, User
-
-from canopy.knowledge_base import KnowledgeBase
-from canopy.context_engine import ContextEngine
-from canopy.chat_engine import ChatEngine
-from canopy.tokenizer import Tokenizer
-
-Tokenizer.initialize()
+from app.models.models import TokenPayload, User
 
 INDEX_NAME = "quickstart-index"
 
@@ -26,31 +19,12 @@ reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token"
 )
 
-class EngineSingleton:
-    _chat_engine = None
-
-    @classmethod
-    def get_chat_engine(cls) -> ChatEngine:
-        if cls._chat_engine is None:
-            kb = KnowledgeBase(index_name=INDEX_NAME)
-            kb.connect()
-            context_engine = ContextEngine(kb)
-            cls._chat_engine = ChatEngine(context_engine)
-        return cls._chat_engine
-
-
 def get_db() -> Generator[Session, None, None]:
     with Session(engine) as session:
         yield session
 
-def get_chat_engine() -> ChatEngine:
-    return EngineSingleton.get_chat_engine()
-    
-
 SessionDep = Annotated[Session, Depends(get_db)]
 TokenDep = Annotated[str, Depends(reusable_oauth2)]
-ChatEngineDep = Annotated[ChatEngine, Depends(get_chat_engine)]
-
 
 def get_current_user(session: SessionDep, token: TokenDep) -> User:
     try:

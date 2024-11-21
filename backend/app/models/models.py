@@ -1,7 +1,8 @@
 import uuid
 
-from pydantic import EmailStr
+from pydantic import BaseModel, EmailStr
 from sqlmodel import Field, Relationship, SQLModel
+from typing import List
 
 
 # Shared properties
@@ -115,3 +116,12 @@ class TokenPayload(SQLModel):
 class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=40)
+
+class ChatMessage(BaseModel):
+    role: str  # "system", "user", or "assistant"
+    content: str
+
+class ChatRequest(BaseModel):
+    history: List[ChatMessage]  # Full conversation history, including user and assistant messages
+    message: str  # The new user message to be appended
+    namespace: str  # The namespace for the chat request
