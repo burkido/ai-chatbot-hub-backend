@@ -138,9 +138,12 @@ class JSONProcessor:
         with open(output_file, 'w') as file:
             json.dump(output_data, file, indent=2)
 
+import os
+import fitz  # PyMuPDF library
+
 class Parser:
-    def __init__(self, file, title, author, source):
-        self.file = file
+    def __init__(self, file_path, title, author, source):
+        self.file_path = file_path
         self.title = title
         self.author = author
         self.source = source
@@ -148,18 +151,17 @@ class Parser:
 
     def read_pdf(self):
         pdf_content = ''
-        with fitz.open(self.file.file) as doc:  # Access the file attribute of UploadFile
-            for page in doc:
+        with fitz.open(self.file_path) as file:
+            for page in file:
                 pdf_content += page.get_text().strip()
 
         metadata = {
             'title': self.title,
-            'author': self.author,
-            'source': self.source
+            'author': self.author
         }
 
         return {
-            'id': os.path.basename(self.file.filename).split('.')[0],  # Using self.file.filename for the name
+            'id': os.path.basename(self.file_path).split('.')[0],
             'text': pdf_content,
             'source': self.source,
             'metadata': metadata

@@ -1,13 +1,15 @@
 import os
 import openai
-import pinecone
-import numpy as np
-from fastapi import APIRouter, UploadFile, File, HTTPException, Form
+from fastapi import APIRouter, UploadFile, HTTPException, File, Form
 from app.utils import Parser
-from pinecone import Pinecone
+from pinecone import Pinecone, ServerlessSpec
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import tiktoken
+import shutil
+import time
+from uuid import uuid4
+from tqdm.auto import tqdm
 
 router = APIRouter()
 
@@ -25,22 +27,19 @@ pc = Pinecone(
 )
 
 text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=400,
-    chunk_overlap=20,
+    chunk_size=500,
+    chunk_overlap=100,
     length_function=tiktoken_len,
     separators=["\n\n", "\n", " ", ""]
 )
 
+spec = ServerlessSpec(
+    cloud="aws", region="us-east-1"
+)
+
 openai.api_key = "YOUR_OPENAI_API_KEY"  # Make sure to set this properly
 
-# OpenAI embedding generation function using LangChain
-def get_embedding(text: str):
-    """Generate embeddings using OpenAI's model"""
-    embedding_model = OpenAIEmbeddings(openai_api_key=openai.api_key)
-    embedding = embedding_model.embed_documents(text)
-    
-    # Convert embedding to float32 before returning
-    return np.array(embedding, dtype=np.float32)
+embed = OpenAIEmbeddings(model="text-embedding-3-small")
 
 @router.post("/upload-document/")
 async def upload_document(
@@ -52,30 +51,77 @@ async def upload_document(
     file: UploadFile = File(...)
 ):
     try:
-        # Parse and process the document (use your parser to extract text)
-        parser = Parser(file, title, author, source)  # Pass the required arguments to the Parser
-        parsed_data = parser.pdf_data  # Get the parsed document data
+        # Normalize index name
+        index_name = index_name.replace(" ", "-").lower()
+        
+        # Save uploaded file temporarily
+        file_path = f"temp_{file.filename}"
+        with open(file_path, "wb") as temp_file:
+            shutil.copyfileobj(file.file, temp_file)
 
-        # Generate embedding for the extracted text
-        embedding = get_embedding(parsed_data['text'])
+        # Parse the uploaded file
+        parser = Parser(file_path, title, author, source)
 
-        # Prepare metadata to store in Pinecone
-        metadata = parsed_data['metadata']
+        # Split text into chunks
+        chunks = text_splitter.split_text(parser.pdf_data['text'])
 
-        # Initialize Pinecone index
-        index = pinecone.Index(index_name)
+        # Define Pinecone index name and check existence
+        index_name = 'langchain-retrieval-augmentation'
+        existing_indexes = [index_info["name"] for index_info in pc.list_indexes()]
 
-        # Prepare the data to upsert (upload the embedding to Pinecone)
-        upsert_data = [{
-            "id": parsed_data['id'],
-            "values": embedding.tolist(),  # Convert embedding to a list for Pinecone
-            "metadata": metadata
-        }]
+        if index_name not in existing_indexes:
+            # Create index if it doesn't exist
+            pc.create_index(
+                index_name,
+                dimension=1536,
+                metric='dotproduct',
+                spec=spec
+            )
+        # Wait for index initialization
+        while not pc.describe_index(index_name).status['ready']:
+            time.sleep(1)
 
-        # Upsert the data to Pinecone
-        index.upsert(vectors=upsert_data, namespace=namespace)
+        # Connect to index
+        index = pc.Index(index_name)
+        time.sleep(1)
+
+        # Metadata fields
+        texts = []
+        metadatas = []
+        batch_limit = 100
+
+        # Prepare and insert chunks with metadata into Pinecone
+        for i, text_chunk in enumerate(tqdm(chunks)):
+            # Metadata for each chunk
+            metadata = {
+                'title': title,
+                'source': source,
+                'category': namespace or 'Default'  # Use namespace as category or 'Default'
+            }
+            # Append the text and metadata
+            texts.append(text_chunk)
+            metadatas.append({
+                "chunk": i,
+                "text": text_chunk,
+                **metadata
+            })
+
+            # Process in batches
+            if len(texts) >= batch_limit:
+                ids = [str(uuid4()) for _ in range(len(texts))]
+                embeds = embed.embed_documents(texts)  # Generate embeddings
+                index.upsert(vectors=zip(ids, embeds, metadatas))  # Upload to Pinecone
+                texts, metadatas = [], []  # Clear batch
+
+        # Insert remaining data
+        if texts:
+            ids = [str(uuid4()) for _ in range(len(texts))]
+            embeds = embed.embed_documents(texts)
+            index.upsert(vectors=zip(ids, embeds, metadatas), namespace=namespace)
+        
+        # Remove the temporary file
+        os.remove(file_path)
 
         return {"message": "Successfully parsed the PDF file and added it to the knowledge base"}
-
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing document: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -10,11 +10,12 @@ from typing import List
 
 from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage, AIMessage
-from langchain_pinecone import Pinecone
-
-#from pinecone import Pinecone, ServerlessSpec
+from langchain_pinecone import PineconeVectorStore
+from langchain_openai import OpenAIEmbeddings
 
 router = APIRouter()
+
+index_name = "langchain-retrieval-augmentation"
 
 # Dependency for ChatOpenAI instance
 def get_chat_openai() -> ChatOpenAI:
@@ -24,13 +25,13 @@ def get_chat_openai() -> ChatOpenAI:
         model="gpt-4o"
     )
 
-def get_vectorstore() -> Pinecone:
-    index_name = "your-index-name"  # Replace with your Pinecone index name
-    return Pinecone(index_name=index_name)
+def get_vectorstore() -> PineconeVectorStore:
+    return PineconeVectorStore(index_name=index_name, embedding=OpenAIEmbeddings())
 
-def augment_prompt(query: str, vectorstore: Pinecone):
+
+def augment_prompt(query: str, vectorstore: PineconeVectorStore):
     # get top 3 results from knowledge base
-    results = vectorstore.similarity_search(query, k=3)
+    results = vectorstore.similarity_search(query=query, k=3, namespace='new-setup-test-namespace')
     # get the text from the results
     source_knowledge = "\n".join([x.page_content for x in results])
     # feed into an augmented prompt
@@ -42,7 +43,7 @@ def augment_prompt(query: str, vectorstore: Pinecone):
     Query: {query}"""
     return augmented_prompt
 
-def chat(new_message: str, chat_model: ChatOpenAI, history: List[ChatMessage], vectorstore: Pinecone) -> str:
+def chat(new_message: str, chat_model: ChatOpenAI, history: List[ChatMessage], vectorstore: PineconeVectorStore) -> str:
     langchain_messages = []
     for msg in history:
         if msg.role == "system":
@@ -72,7 +73,7 @@ def chat_endpoint(
     session: SessionDep,
     current_user: CurrentUser,
     chat_model: ChatOpenAI = Depends(get_chat_openai),
-    vectorstore: Pinecone = Depends(get_vectorstore)
+    vectorstore: PineconeVectorStore = Depends(get_vectorstore)
 ) -> str:
     """
     Chat with the assistant and decrease the user's credit.
