@@ -4,7 +4,7 @@ from pydantic import BaseModel, EmailStr
 from sqlmodel import Field, Relationship, SQLModel
 from typing import List
 
-
+'''
 # Shared properties
 class UserBase(SQLModel):
     email: EmailStr = Field(unique=True, index=True, max_length=255)
@@ -125,3 +125,4 @@ class ChatRequest(BaseModel):
     history: List[ChatMessage]  # Full conversation history, including user and assistant messages
     message: str  # The new user message to be appended
     namespace: str  # The namespace for the chat request
+    '''

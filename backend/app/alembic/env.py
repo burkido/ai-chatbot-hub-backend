@@ -14,24 +14,22 @@ fileConfig(config.config_file_name)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-# target_metadata = None
+from app.models.user import User, UserBase, UserCreate, UserRegister, UserUpdate, UserUpdateMe, UpdatePassword, UpdateCredit, UserPublic, UsersPublic  # noqa
+from app.models.item import Item, ItemBase, ItemCreate, ItemUpdate, ItemPublic, ItemsPublic  # noqa
+from app.models.chat import ChatMessage, ChatRequest  # noqa
+from app.models.token import Message, Token, TokenPayload, NewPassword  # noqa
+from app.core.config import settings  # noqa
 
-from app.models.models import SQLModel  # noqa
-from app.core.config import settings # noqa
-
-target_metadata = SQLModel.metadata
+# Combine metadata objects
+target_metadata = [User.metadata, Item.metadata]
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
-
 def get_url():
     return str(settings.SQLALCHEMY_DATABASE_URI)
-
 
 def run_migrations_offline():
     """Run migrations in 'offline' mode.
@@ -52,7 +50,6 @@ def run_migrations_offline():
 
     with context.begin_transaction():
         context.run_migrations()
-
 
 def run_migrations_online():
     """Run migrations in 'online' mode.
@@ -76,7 +73,6 @@ def run_migrations_online():
 
         with context.begin_transaction():
             context.run_migrations()
-
 
 if context.is_offline_mode():
     run_migrations_offline()

@@ -1,10 +1,12 @@
 import os
 
-from fastapi import APIRouter, HTTPException, Form, Depends
+from fastapi import APIRouter, HTTPException, Depends
 
 from app import crud
 from app.api.deps import SessionDep, CurrentUser
-from app.models.models import User, ChatMessage, ChatRequest
+#from app.models.models import User, ChatMessage, ChatRequest
+from app.models.user import User
+from app.models.chat import ChatMessage, ChatRequest
 
 from typing import List
 
