@@ -15,17 +15,10 @@ import {
   ModalFooter,
   ModalBody,
   ModalCloseButton,
-  Flex,
-  Icon,
-  Box,
-  Text,
-  Spinner,
-  Tooltip,
-  CircularProgress,
 } from '@chakra-ui/react';
-import { AttachmentIcon } from '@chakra-ui/icons';
 import { useMutation } from '@tanstack/react-query';
 import { FileUploadService } from "../../client"
+// TODO - Add the FileUploadService import
 
 export const Route = createFileRoute('/_layout/upload-document')({
   component: UploadPDF,
@@ -41,6 +34,7 @@ function UploadPDF() {
   const [author, setAuthor] = useState('');
   const [source, setSource] = useState('');
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -148,6 +142,28 @@ function UploadPDF() {
     simulateUploadProgress();
   };
 
+  const confirmDelete = () => {
+    if (!title && !source) {
+      toast({
+        title: "Error",
+        description: "You must provide either a 'title' or a 'source' for deletion.",
+        status: "error",
+        duration: 2000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    // Call delete API
+    // mutation.mutate({ title, source });
+    toast({
+      title: "Document deleted.",
+      status: "success",
+      duration: 2000,
+      isClosable: true,
+    });
+  };
+
   const handleContainerClick = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -156,112 +172,121 @@ function UploadPDF() {
 
   return (
     <Container maxW="full" mt={8}>
-      <Flex direction="column" alignItems="flex-start">
-        <FormControl id="indexName" mb={4} isRequired>
-          <FormLabel>Index Name</FormLabel>
-          <Tooltip label="Index name will be converted to lowercase and spaces will be replaced by hyphens" hasArrow>
-            <Input
-              type="text"
-              value={indexName}
-              onChange={(e) => setIndexName(e.target.value)}
-              borderColor={'gray.300'}
-            />
-          </Tooltip>
-        </FormControl>
-        <FormControl id="namespace" mb={4}>
-          <FormLabel>Namespace</FormLabel>
-          <Input
-            type="text"
-            value={namespace}
-            onChange={(e) => setNamespace(e.target.value)}
-          />
-        </FormControl>
-        <FormControl id="title" mb={4} isRequired>
-          <FormLabel>Title</FormLabel>
-          <Input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-        </FormControl>
-        <FormControl id="author" mb={4} isRequired>
-          <FormLabel>Author</FormLabel>
-          <Input
-            type="text"
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-          />
-        </FormControl>
-        <FormControl id="source" mb={4} isRequired>
-          <FormLabel>Source</FormLabel>
-          <Input
-            type="text"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-          />
-        </FormControl>
-        <FormControl id="file" mb={4} isRequired>
-          <FormLabel>Upload PDF</FormLabel>
-          <Tooltip label="No file selected" isDisabled={!!file} hasArrow>
-            <Flex
-              alignItems="center"
-              borderWidth="1px"
-              borderRadius="md"
-              borderColor={'gray.300'}
-              p={2}
-              _hover={{ borderColor: 'blue.500' }}
-              cursor="pointer"
-              onClick={handleContainerClick}
-            >
-              <Icon as={AttachmentIcon} boxSize={5} color="gray.500" mr={2} />
-              <Input
-                type="file"
-                accept="application/pdf"
-                onChange={handleFileChange}
-                display="none"
-                ref={fileInputRef}
-              />
-              <Box>
-                {!fileName ? (
-                  <Text color="gray.600" fontSize="sm">
-                    Drag & drop your file here or click to browse
-                  </Text>
-                ) : (
-                  <Text color="gray.600" fontSize="sm" mt={2}>
-                    Selected file: {fileName}
-                  </Text>
-                )}
-              </Box>
-            </Flex>
-          </Tooltip>
-        </FormControl>
-        <Button colorScheme="blue" onClick={handleUpload} isDisabled={isLoading}>
-          {isLoading ? (
-            <CircularProgress isIndeterminate color="blue.500" size="24px" />
-          ) : (
-            'Upload'
-          )}
-        </Button>
-      </Flex>
+      <Button onClick={onOpen} variant="primary" mb={4}>
+        + Add Document
+      </Button>
+      <Button onClick={onDeleteOpen} variant="danger" mb={4} ml={4}>
+        - Delete Document
+      </Button>
 
-      <Modal isOpen={isOpen} onClose={onClose}>
+      <Modal isOpen={isOpen} onClose={onClose} isCentered>
         <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Confirm Upload</ModalHeader>
+        <ModalContent as="form" onSubmit={(e) => { e.preventDefault(); confirmUpload(); }}>
+          <ModalHeader>Add Document</ModalHeader>
           <ModalCloseButton />
-          <ModalBody>Are you sure you want to upload this file?</ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" onClick={onClose}>
-              Cancel
+          <ModalBody pb={6}>
+            <FormControl isRequired>
+              <FormLabel htmlFor="namespace">Namespace</FormLabel>
+              <Input
+                id="namespace"
+                value={namespace}
+                onChange={(e) => setNamespace(e.target.value)}
+                placeholder="Namespace"
+                type="text"
+              />
+            </FormControl>
+            <FormControl mt={4} isRequired>
+              <FormLabel htmlFor="indexName">Index Name</FormLabel>
+              <Input
+                id="indexName"
+                value={indexName}
+                onChange={(e) => setIndexName(e.target.value)}
+                placeholder="Index Name"
+                type="text"
+              />
+            </FormControl>
+            <FormControl mt={4} isRequired>
+              <FormLabel htmlFor="title">Title</FormLabel>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Title"
+                type="text"
+              />
+            </FormControl>
+            <FormControl mt={4} isRequired>
+              <FormLabel htmlFor="author">Author</FormLabel>
+              <Input
+                id="author"
+                value={author}
+                onChange={(e) => setAuthor(e.target.value)}
+                placeholder="Author"
+                type="text"
+              />
+            </FormControl>
+            <FormControl mt={4} isRequired>
+              <FormLabel htmlFor="source">Source</FormLabel>
+              <Input
+                id="source"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                placeholder="Source"
+                type="text"
+              />
+            </FormControl>
+            <FormControl mt={4} isRequired>
+              <FormLabel htmlFor="file">File</FormLabel>
+              <Input
+                id="file"
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+              />
+            </FormControl>
+          </ModalBody>
+
+          <ModalFooter gap={3}>
+            <Button variant="primary" type="submit" isLoading={isLoading}>
+              Save
             </Button>
-            <Button
-              colorScheme="blue"
-              onClick={confirmUpload}
-              ml={3}
-              disabled={isLoading}
-            >
-              {isLoading ? <Spinner size="sm" /> : 'Confirm'}
+            <Button onClick={onClose}>Cancel</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={isDeleteOpen} onClose={onDeleteClose} isCentered>
+        <ModalOverlay />
+        <ModalContent as="form" onSubmit={(e) => { e.preventDefault(); confirmDelete(); }}>
+          <ModalHeader>Delete Document</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            <FormControl>
+              <FormLabel htmlFor="title">Title</FormLabel>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Title"
+                type="text"
+              />
+            </FormControl>
+            <FormControl mt={4}>
+              <FormLabel htmlFor="source">Source</FormLabel>
+              <Input
+                id="source"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                placeholder="Source"
+                type="text"
+              />
+            </FormControl>
+          </ModalBody>
+          <ModalFooter gap={3}>
+            <Button variant="danger" type="submit">
+              Delete
             </Button>
+            <Button onClick={onDeleteClose}>Cancel</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

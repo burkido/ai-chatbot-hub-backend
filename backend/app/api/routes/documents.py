@@ -1,7 +1,7 @@
 import os
-import openai
 from fastapi import APIRouter, UploadFile, HTTPException, File, Form
 from app.utils import Parser
+from app.models.documents import DeleteDocumentRequest
 from pinecone import Pinecone, ServerlessSpec
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -10,6 +10,7 @@ import shutil
 import time
 from uuid import uuid4
 from tqdm.auto import tqdm
+from fastapi import HTTPException
 
 router = APIRouter()
 
@@ -37,7 +38,7 @@ spec = ServerlessSpec(
     cloud="aws", region="us-east-1"
 )
 
-openai.api_key = "YOUR_OPENAI_API_KEY"  # Make sure to set this properly
+#openai.api_key = "YOUR_OPENAI_API_KEY"  # Make sure to set this properly
 
 embed = OpenAIEmbeddings(model="text-embedding-3-small")
 
@@ -110,10 +111,11 @@ async def upload_document(
             if len(texts) >= batch_limit:
                 ids = [str(uuid4()) for _ in range(len(texts))]
                 embeds = embed.embed_documents(texts)  # Generate embeddings
-                index.upsert(vectors=zip(ids, embeds, metadatas))  # Upload to Pinecone
+                index.upsert(vectors=zip(ids, embeds, metadatas), namespace=namespace)  # Upload to Pinecone
                 texts, metadatas = [], []  # Clear batch
 
         # Insert remaining data
+        # todo: check if texts is not empty https://github.com/pinecone-io/examples/blob/master/learn/generation/langchain/handbook/05-langchain-retrieval-augmentation.ipynb
         if texts:
             ids = [str(uuid4()) for _ in range(len(texts))]
             embeds = embed.embed_documents(texts)
@@ -125,3 +127,38 @@ async def upload_document(
         return {"message": "Successfully parsed the PDF file and added it to the knowledge base"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/delete-document")
+async def delete_document(request: DeleteDocumentRequest):
+    """
+    Deletes all records in the Pinecone index that match the given metadata filter.
+    """
+    try:
+        # Validate input: Either title or source must be provided
+        if not request.title and not request.source:
+            raise HTTPException(
+                status_code=400,
+                detail="You must provide either a 'title' or a 'source' for deletion."
+            )
+
+        # Build the metadata filter
+        filter_conditions = {}
+        if request.title:
+            filter_conditions["title"] = {"$eq": request.title}
+        if request.source:
+            filter_conditions["source"] = {"$eq": request.source}
+
+        # Delete records matching the metadata filter
+        index = pc.Index("langchain-retrieval-augmentation")
+        index.delete(
+            filter=filter_conditions,
+            namespace="example-namespace"  # Replace with your namespace
+        )
+        return {
+            "message": "Records have been successfully deleted.",
+            "filters": filter_conditions,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
