@@ -562,3 +562,26 @@ export class FileUploadService {
     });
   }
 }
+
+export class FileDeleteService {
+  /**
+   * Delete Document
+   * Deletes all records in the Pinecone index that match the given metadata filter.
+   * @param data The request data containing title or source
+   * @returns Message Successful Response
+   * @throws ApiError
+   */
+  public static deleteDocument(data: { title?: string; source?: string }): CancelablePromise<{ message: string; filters: Record<string, any> }> {
+    return __request(OpenAPI, {
+      method: "DELETE",
+      url: "/api/v1/documents/delete-document",
+      body: data,
+      mediaType: "application/json",
+      errors: {
+        400: `You must provide either a 'title' or a 'source' for deletion.`,
+        422: `Validation Error`,
+        500: `An error occurred: {error_message}`,
+      },
+    });
+  }
+}

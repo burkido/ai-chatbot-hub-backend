@@ -23,9 +23,7 @@ def tiktoken_len(text):
     )
     return len(tokens)
 
-pc = Pinecone(
-    api_key=os.environ.get("PINECONE_API_KEY"),  # Replace with your Pinecone API key
-)
+pc = Pinecone()
 
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=500,
@@ -67,7 +65,6 @@ async def upload_document(
         chunks = text_splitter.split_text(parser.pdf_data['text'])
 
         # Define Pinecone index name and check existence
-        index_name = 'langchain-retrieval-augmentation'
         existing_indexes = [index_info["name"] for index_info in pc.list_indexes()]
 
         if index_name not in existing_indexes:
@@ -89,17 +86,16 @@ async def upload_document(
         # Metadata fields
         texts = []
         metadatas = []
-        batch_limit = 100
-
         # Prepare and insert chunks with metadata into Pinecone
-        for i, text_chunk in enumerate(tqdm(chunks)):
-            # Metadata for each chunk
+        batch_limit = 100
+        texts, metadatas = [], []
+
+        for i, text_chunk in enumerate(chunks):
             metadata = {
                 'title': title,
                 'source': source,
-                'category': namespace or 'Default'  # Use namespace as category or 'Default'
+                'category': namespace or 'Default'
             }
-            # Append the text and metadata
             texts.append(text_chunk)
             metadatas.append({
                 "chunk": i,
@@ -107,58 +103,63 @@ async def upload_document(
                 **metadata
             })
 
-            # Process in batches
             if len(texts) >= batch_limit:
-                ids = [str(uuid4()) for _ in range(len(texts))]
-                embeds = embed.embed_documents(texts)  # Generate embeddings
-                index.upsert(vectors=zip(ids, embeds, metadatas), namespace=namespace)  # Upload to Pinecone
-                texts, metadatas = [], []  # Clear batch
+                ids = [f"{title.replace(' ', '_').lower()}_chunk_{i}" for i in range(len(texts))]
+                print("ids", ids)
+                embeds = embed.embed_documents(texts)
+                index.upsert(vectors=list(zip(ids, embeds, metadatas)), namespace=namespace)
+                texts, metadatas = [], []
 
         # Insert remaining data
-        # todo: check if texts is not empty https://github.com/pinecone-io/examples/blob/master/learn/generation/langchain/handbook/05-langchain-retrieval-augmentation.ipynb
         if texts:
-            ids = [str(uuid4()) for _ in range(len(texts))]
+            ids = [f"{title.replace(' ', '_').lower()}_chunk_{i}" for i in range(len(texts))]
+            print("ids below", ids)
             embeds = embed.embed_documents(texts)
-            index.upsert(vectors=zip(ids, embeds, metadatas), namespace=namespace)
+            index.upsert(vectors=list(zip(ids, embeds, metadatas)), namespace=namespace)
+
         
         # Remove the temporary file
         os.remove(file_path)
 
         return {"message": "Successfully parsed the PDF file and added it to the knowledge base"}
     except Exception as e:
+        print("An error occurred:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/delete-document")
 async def delete_document(request: DeleteDocumentRequest):
     """
-    Deletes all records in the Pinecone index that match the given metadata filter.
+    Deletes all records in the Pinecone index that match the given title.
     """
     try:
-        # Validate input: Either title or source must be provided
-        if not request.title and not request.source:
+        # Validate input: Title must be provided
+        if not request.title:
             raise HTTPException(
                 status_code=400,
-                detail="You must provide either a 'title' or a 'source' for deletion."
+                detail="You must provide a 'title' for deletion."
             )
 
-        # Build the metadata filter
-        filter_conditions = {}
-        if request.title:
-            filter_conditions["title"] = {"$eq": request.title}
-        if request.source:
-            filter_conditions["source"] = {"$eq": request.source}
+        # Generate title-based prefix for deletion
+        title_prefix = f"{request.title.replace(' ', '_').lower()}_chunk_"
 
-        # Delete records matching the metadata filter
-        index = pc.Index("langchain-retrieval-augmentation")
-        index.delete(
-            filter=filter_conditions,
-            namespace="example-namespace"  # Replace with your namespace
-        )
+        pc = Pinecone()
+
+        # Connect to the Pinecone index
+        index = pc.Index("aa-index-name")
+        namespace = "aa-namespace"
+
+        # Fetch all IDs matching the prefix
+        all_ids = []
+        for ids in index.list(prefix=title_prefix, namespace=namespace):
+            all_ids.extend(ids)
+            index.delete(ids=ids, namespace=namespace)
+
         return {
-            "message": "Records have been successfully deleted.",
-            "filters": filter_conditions,
+            "message": f"Successfully deleted all chunks for title '{request.title}'.",
+            "deleted_ids": all_ids,
         }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+

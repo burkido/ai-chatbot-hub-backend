@@ -17,8 +17,7 @@ import {
   ModalCloseButton,
 } from '@chakra-ui/react';
 import { useMutation } from '@tanstack/react-query';
-import { FileUploadService } from "../../client"
-// TODO - Add the FileUploadService import
+import { FileUploadService, FileDeleteService } from "../../client"
 
 export const Route = createFileRoute('/_layout/upload-document')({
   component: UploadPDF,
@@ -90,6 +89,32 @@ function UploadPDF() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (data: { title: string, source: string }) => {
+      return FileDeleteService.deleteDocument(data);
+    },
+    onSuccess: () => {
+      toast({
+        title: 'File deleted successfully',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      setFile(null);
+      setFileName('');
+      setIsLoading(false);
+    },
+    onError: () => {
+      toast({
+        title: 'File deletion failed',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      setIsLoading(false);
+    },
+  })
+
   const handleUpload = async () => {
     if (!indexName || !title || !author || !source) {
       toast({
@@ -155,7 +180,8 @@ function UploadPDF() {
     }
 
     // Call delete API
-    // mutation.mutate({ title, source });
+    deleteMutation.mutate({ title, source });
+
     toast({
       title: "Document deleted.",
       status: "success",
