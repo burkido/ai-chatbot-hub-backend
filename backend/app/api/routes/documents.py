@@ -36,8 +36,6 @@ spec = ServerlessSpec(
     cloud="aws", region="us-east-1"
 )
 
-#openai.api_key = "YOUR_OPENAI_API_KEY"  # Make sure to set this properly
-
 embed = OpenAIEmbeddings(model="text-embedding-3-small")
 
 @router.post("/upload-document/")
@@ -143,11 +141,9 @@ async def delete_document(request: DeleteDocumentRequest):
         # Generate title-based prefix for deletion
         title_prefix = f"{request.title.replace(' ', '_').lower()}_chunk_"
 
-        pc = Pinecone()
-
         # Connect to the Pinecone index
-        index = pc.Index("aa-index-name")
-        namespace = "aa-namespace"
+        index = pc.Index("test-latest-index")
+        namespace = "test-latest-namespace"
 
         # Fetch all IDs matching the prefix
         all_ids = []

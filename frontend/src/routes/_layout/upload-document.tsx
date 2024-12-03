@@ -8,13 +8,15 @@ import {
   Input,
   useToast,
   useDisclosure,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalFooter,
-  ModalBody,
-  ModalCloseButton,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
+  Tabs,
+  TabList,
+  TabPanels,
+  Tab,
+  TabPanel,
 } from '@chakra-ui/react';
 import { useMutation } from '@tanstack/react-query';
 import { FileUploadService, FileDeleteService } from "../../client"
@@ -32,10 +34,10 @@ function UploadPDF() {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [source, setSource] = useState('');
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadError, setUploadError] = useState(false);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -68,52 +70,16 @@ function UploadPDF() {
       return FileUploadService.uploadDocument({ formData });
     },
     onSuccess: () => {
-      toast({
-        title: 'File uploaded successfully',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-      setFile(null);
-      setFileName('');
+      setUploadSuccess(true);
+      setUploadError(false);
       setIsLoading(false);
     },
     onError: () => {
-      toast({
-        title: 'File upload failed',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
+      setUploadSuccess(false);
+      setUploadError(true);
       setIsLoading(false);
     },
   });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (data: { title: string, source: string }) => {
-      return FileDeleteService.deleteDocument(data);
-    },
-    onSuccess: () => {
-      toast({
-        title: 'File deleted successfully',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-      setFile(null);
-      setFileName('');
-      setIsLoading(false);
-    },
-    onError: () => {
-      toast({
-        title: 'File deletion failed',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-      setIsLoading(false);
-    },
-  })
 
   const handleUpload = async () => {
     if (!indexName || !title || !author || !source) {
@@ -136,13 +102,11 @@ function UploadPDF() {
       return;
     }
 
-    // If validation is successful, open the confirmation popup
-    onOpen();
+    confirmUpload();
   };
 
   const confirmUpload = async () => {
     setIsLoading(true);
-    onClose(); // Close the popup immediately after confirming the upload
 
     const formData = new FormData();
     formData.append('file', file as Blob);
@@ -152,22 +116,35 @@ function UploadPDF() {
     formData.append('author', author);
     formData.append('source', source);
 
-    // Simulate upload progress
-    const simulateUploadProgress = () => {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 10;
-        if (progress >= 100) {
-          clearInterval(interval);
-          mutation.mutate(formData);
-        }
-      }, 300);
-    };
-
-    simulateUploadProgress();
+    mutation.mutate(formData);
   };
 
-  const confirmDelete = () => {
+  const deleteMutation = useMutation({
+    mutationFn: async (data: { title?: string; source?: string }) => {
+      return FileDeleteService.deleteDocument(data);
+    },
+    onSuccess: () => {
+      toast({
+        title: 'File deleted successfully',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      setIsLoading(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'File deletion failed',
+        description: error.message,
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      setIsLoading(false);
+    },
+  });
+
+  const confirmDelete = async () => {
     if (!title && !source) {
       toast({
         title: "Error",
@@ -179,15 +156,7 @@ function UploadPDF() {
       return;
     }
 
-    // Call delete API
     deleteMutation.mutate({ title, source });
-
-    toast({
-      title: "Document deleted.",
-      status: "success",
-      duration: 2000,
-      isClosable: true,
-    });
   };
 
   const handleContainerClick = () => {
@@ -198,19 +167,13 @@ function UploadPDF() {
 
   return (
     <Container maxW="full" mt={8}>
-      <Button onClick={onOpen} variant="primary" mb={4}>
-        + Add Document
-      </Button>
-      <Button onClick={onDeleteOpen} variant="danger" mb={4} ml={4}>
-        - Delete Document
-      </Button>
-
-      <Modal isOpen={isOpen} onClose={onClose} isCentered>
-        <ModalOverlay />
-        <ModalContent as="form" onSubmit={(e) => { e.preventDefault(); confirmUpload(); }}>
-          <ModalHeader>Add Document</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody pb={6}>
+      <Tabs isFitted variant="enclosed">
+        <TabList mb="1em">
+          <Tab>Add Document</Tab>
+          <Tab>Delete Document</Tab>
+        </TabList>
+        <TabPanels>
+          <TabPanel>
             <FormControl isRequired>
               <FormLabel htmlFor="namespace">Namespace</FormLabel>
               <Input
@@ -270,23 +233,25 @@ function UploadPDF() {
                 onChange={handleFileChange}
               />
             </FormControl>
-          </ModalBody>
-
-          <ModalFooter gap={3}>
-            <Button variant="primary" type="submit" isLoading={isLoading}>
+            {uploadSuccess && (
+              <Alert status="success" mt={4}>
+                <AlertIcon />
+                <AlertTitle>Success!</AlertTitle>
+                <AlertDescription>File uploaded successfully.</AlertDescription>
+              </Alert>
+            )}
+            {uploadError && (
+              <Alert status="error" mt={4}>
+                <AlertIcon />
+                <AlertTitle>Error!</AlertTitle>
+                <AlertDescription>Failed to upload file.</AlertDescription>
+              </Alert>
+            )}
+            <Button variant="primary" mt={4} onClick={handleUpload} isLoading={isLoading}>
               Save
             </Button>
-            <Button onClick={onClose}>Cancel</Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      <Modal isOpen={isDeleteOpen} onClose={onDeleteClose} isCentered>
-        <ModalOverlay />
-        <ModalContent as="form" onSubmit={(e) => { e.preventDefault(); confirmDelete(); }}>
-          <ModalHeader>Delete Document</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody pb={6}>
+          </TabPanel>
+          <TabPanel>
             <FormControl>
               <FormLabel htmlFor="title">Title</FormLabel>
               <Input
@@ -307,15 +272,12 @@ function UploadPDF() {
                 type="text"
               />
             </FormControl>
-          </ModalBody>
-          <ModalFooter gap={3}>
-            <Button variant="danger" type="submit">
+            <Button variant="danger" mt={4} onClick={confirmDelete} isLoading={isLoading}>
               Delete
             </Button>
-            <Button onClick={onDeleteClose}>Cancel</Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </TabPanel>
+        </TabPanels>
+      </Tabs>
     </Container>
   );
 }

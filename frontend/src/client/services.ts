@@ -553,7 +553,7 @@ export class FileUploadService {
   ): CancelablePromise<Message> {
     return __request(OpenAPI, {
       method: "POST",
-      url: "/api/v1/chat/upload-document/",
+      url: "/api/v1/documents/upload-document/",
       body: data.formData,
       mediaType: "multipart/form-data",
       errors: {
