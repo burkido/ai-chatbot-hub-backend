@@ -7,7 +7,6 @@ import {
   FormLabel,
   Input,
   useToast,
-  useDisclosure,
   Alert,
   AlertIcon,
   AlertTitle,
@@ -29,7 +28,6 @@ function UploadPDF() {
   const [namespace, setNamespace] = useState('');
   const [indexName, setIndexName] = useState('quickstart-index');
   const [file, setFile] = useState<File | null>(null);
-  const [fileName, setFileName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
@@ -53,7 +51,6 @@ function UploadPDF() {
           isClosable: true,
         });
         setFile(null);
-        setFileName('');
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
@@ -61,7 +58,6 @@ function UploadPDF() {
       }
 
       setFile(selectedFile);
-      setFileName(selectedFile.name);
     }
   };
 
@@ -157,12 +153,6 @@ function UploadPDF() {
     }
 
     deleteMutation.mutate({ title, source });
-  };
-
-  const handleContainerClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
   };
 
   return (

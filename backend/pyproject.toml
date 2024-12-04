@@ -29,6 +29,8 @@ pyjwt = "^2.8.0"
 PyMuPDF = "1.24.10"
 pandas = "2.0.0"
 langchain = "0.3.2"
+langchain_openai = "0.2.11"
+langchain_pinecone = "0.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"
