@@ -7,7 +7,7 @@ class UserBase(SQLModel):
     is_active: bool = True
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
-    credit: int = Field(default=3, ge=0)
+    credit: int = Field(default=7, ge=0)
 
 class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=40)

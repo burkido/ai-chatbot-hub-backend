@@ -15,7 +15,7 @@ from app.core.config import settings
 from app.core.security import get_password_hash
 #from app.models.models import Message, Token, UserPublic, NewPassword, Message
 from app.models.token import Message, Token, RefreshTokenRequest, NewPassword
-from app.models.user import UserPublic
+from app.models.user import UserPublic, UserCreate
 
 from app.utils import (
     generate_password_reset_token,
@@ -27,7 +27,7 @@ from app.utils import (
 router = APIRouter()
 
 
-@router.post("/login/access-token")
+@router.post("/login")
 def login_access_token(
     session: SessionDep, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ) -> Token:
@@ -54,7 +54,7 @@ def login_access_token(
         )
     )
 
-@router.post("/login/refresh-token")
+@router.post("/refresh-token")
 def refresh_access_token(
     session: SessionDep, token_request: RefreshTokenRequest
 ) -> Token:
@@ -92,7 +92,22 @@ def refresh_access_token(
         )
     )
 
-@router.post("/login/test-token", response_model=UserPublic)
+@router.post("/register")
+def register(
+    session: SessionDep, user_create: UserCreate
+) -> None:
+    """
+    Register a new user
+    """
+    user = crud.get_user_by_email(session=session, email=user_create.email)
+    if user:
+        raise HTTPException(
+            status_code=400,
+            detail="The user with this email already exists in the system.",
+        )
+    crud.create_user(session=session, user_create=user_create)
+
+@router.post("/test-token", response_model=UserPublic)
 def test_token(current_user: CurrentUser) -> Any:
     """
     Test access token
