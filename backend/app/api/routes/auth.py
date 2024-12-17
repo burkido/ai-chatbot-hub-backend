@@ -15,7 +15,7 @@ from app.core.config import settings
 from app.core.security import get_password_hash
 #from app.models.models import Message, Token, UserPublic, NewPassword, Message
 from app.models.token import Message, Token, RefreshTokenRequest, NewPassword
-from app.models.user import UserPublic, UserCreate
+from app.models.user import UserPublic, UserCreate, UserGoogleLogin, UserGoogleRegister
 
 from app.utils import (
     generate_password_reset_token,
@@ -45,6 +45,29 @@ def login_access_token(
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     
+    return Token(
+        access_token=security.create_access_token(
+            user.id, expires_delta=access_token_expires
+        ),
+        refresh_token=security.create_refresh_token(
+            user.id, expires_delta=refresh_token_expires
+        )
+    )
+
+@router.post("/login-google")
+def google_login(
+    session: SessionDep, user_google: UserGoogleLogin
+) -> Token:
+    """
+    Google login
+    """
+    user = crud.get_user_by_email(session=session, email=user_google.email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
     return Token(
         access_token=security.create_access_token(
             user.id, expires_delta=access_token_expires
@@ -106,6 +129,21 @@ def register(
             detail="The user with this email already exists in the system.",
         )
     crud.create_user(session=session, user_create=user_create)
+
+@router.post("/register-google")
+def google_register(
+    session: SessionDep, user_google: UserGoogleRegister
+) -> None:
+    """
+    Google register
+    """
+    user = crud.get_user_by_google_id(session=session, google_id=user_google.google_id)
+    if user:
+        raise HTTPException(
+            status_code=409,
+            detail="The user with this email already exists in the system.",
+        )
+    crud.create_user(session=session, user_google=user_google)
 
 @router.post("/test-token", response_model=UserPublic)
 def test_token(current_user: CurrentUser) -> Any:

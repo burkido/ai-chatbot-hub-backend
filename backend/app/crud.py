@@ -5,15 +5,18 @@ from sqlmodel import Session, select
 
 from app.core.security import get_password_hash, verify_password
 #from app.models.models import Item, ItemCreate, User, UserCreate, UserUpdate
-from app.models.user import User, UserCreate, UserUpdate
+from app.models.user import User, UserCreate, UserUpdate, UserGoogleLogin
 from app.models.item import Item, ItemCreate
 
 
 
-def create_user(*, session: Session, user_create: UserCreate) -> User:
-    db_obj = User.model_validate(
-        user_create, update={"hashed_password": get_password_hash(user_create.password)}
-    )
+def create_user(*, session: Session, user_create: UserCreate | UserGoogleLogin) -> User:
+    if isinstance(user_create, UserGoogleLogin):
+        db_obj = User.model_validate(user_create)
+    else:
+        db_obj = User.model_validate(
+            user_create, update={"hashed_password": get_password_hash(user_create.password)}
+        )
     session.add(db_obj)
     session.commit()
     session.refresh(db_obj)
@@ -42,12 +45,18 @@ def get_user_by_email(*, session: Session, email: str) -> User | None:
 def get_user_by_id(*, session: Session, user_id: uuid.UUID) -> User | None:
     return session.get(User, user_id)
 
-def authenticate(*, session: Session, email: str, password: str) -> User | None:
-    db_user = get_user_by_email(session=session, email=email)
-    if not db_user:
-        return None
-    if not verify_password(password, db_user.hashed_password):
-        return None
+def get_user_by_google_id(*, session: Session, google_id: str) -> User | None:
+    statement = select(User).where(User.google_id == google_id)
+    session_user = session.exec(statement).first()
+    return session_user
+
+def authenticate(*, session: Session, email: str, password: str = None, google_id: str = None) -> User | None:
+    if google_id:
+        db_user = get_user_by_google_id(session=session, google_id=google_id)
+    else:
+        db_user = get_user_by_email(session=session, email=email)
+        if not db_user or not verify_password(password, db_user.hashed_password):
+            return None
     return db_user
 
 

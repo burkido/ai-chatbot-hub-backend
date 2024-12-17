@@ -19,9 +19,11 @@ from app.models.item import Item, ItemBase, ItemCreate, ItemUpdate, ItemPublic, 
 from app.models.chat import ChatMessage, ChatRequest  # noqa
 from app.models.token import Message, Token, TokenPayload, NewPassword  # noqa
 from app.core.config import settings  # noqa
+from sqlmodel import SQLModel
 
 # Combine metadata objects
-target_metadata = [User.metadata, Item.metadata]
+#target_metadata = [User.metadata, Item.metadata]
+target_metadata = SQLModel.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
