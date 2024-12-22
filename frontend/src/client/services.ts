@@ -47,7 +47,7 @@ export class LoginService {
     const { formData } = data
     return __request(OpenAPI, {
       method: "POST",
-      url: "/api/v1/login/access-token",
+      url: "/api/v1/auth/login",
       formData: formData,
       mediaType: "application/x-www-form-urlencoded",
       errors: {

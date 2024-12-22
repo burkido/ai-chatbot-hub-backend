@@ -4,11 +4,10 @@ from typing import Any
 from sqlmodel import Session, select
 
 from app.core.security import get_password_hash, verify_password
-#from app.models.models import Item, ItemCreate, User, UserCreate, UserUpdate
 from app.models.user import User, UserCreate, UserUpdate, UserGoogleLogin
 from app.models.item import Item, ItemCreate
 
-
+# User-related CRUD operations
 
 def create_user(*, session: Session, user_create: UserCreate | UserGoogleLogin) -> User:
     if isinstance(user_create, UserGoogleLogin):
@@ -22,7 +21,6 @@ def create_user(*, session: Session, user_create: UserCreate | UserGoogleLogin) 
     session.refresh(db_obj)
     return db_obj
 
-
 def update_user(*, session: Session, db_user: User, user_in: UserUpdate) -> Any:
     user_data = user_in.model_dump(exclude_unset=True)
     extra_data = {}
@@ -35,7 +33,6 @@ def update_user(*, session: Session, db_user: User, user_in: UserUpdate) -> Any:
     session.commit()
     session.refresh(db_user)
     return db_user
-
 
 def get_user_by_email(*, session: Session, email: str) -> User | None:
     statement = select(User).where(User.email == email)
@@ -59,6 +56,14 @@ def authenticate(*, session: Session, email: str, password: str = None, google_i
             return None
     return db_user
 
+def decrease_user_credit(*, session: Session, user: User, amount: int) -> User:
+    user.credit -= amount
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+# Item-related CRUD operations
 
 def create_item(*, session: Session, item_in: ItemCreate, owner_id: uuid.UUID) -> Item:
     db_item = Item.model_validate(item_in, update={"owner_id": owner_id})
@@ -66,11 +71,3 @@ def create_item(*, session: Session, item_in: ItemCreate, owner_id: uuid.UUID) -
     session.commit()
     session.refresh(db_item)
     return db_item
-
-def decrease_user_credit(*, session: Session, user: User, amount: int) -> User:
-    user = session.query(User).filter(User.id == user.id).with_for_update().one()
-    user.credit -= amount
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    return user
