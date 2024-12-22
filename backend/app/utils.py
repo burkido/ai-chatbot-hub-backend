@@ -96,6 +96,23 @@ def generate_new_account_email(
     return EmailData(html_content=html_content, subject=subject)
 
 
+def generate_invite_friend_email(
+    email_to: str, username: str, inviter_name: str, deeplink: str
+) -> EmailData:
+    project_name = settings.PROJECT_NAME
+    subject = f"{project_name} - Invitation from {inviter_name}"
+    html_content = render_email_template(
+        template_name="invite_friend.mjml",
+        context={
+            "project_name": project_name,
+            "username": username,
+            "inviter_name": inviter_name,
+            "deeplink": deeplink,
+            "email": email_to,
+        },
+    )
+    return EmailData(html_content=html_content, subject=subject)
+
 def generate_password_reset_token(email: str) -> str:
     delta = timedelta(hours=settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS)
     now = datetime.now(timezone.utc)

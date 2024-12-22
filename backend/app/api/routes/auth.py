@@ -20,6 +20,7 @@ from app.models.user import UserPublic, UserCreate, UserGoogleLogin, UserGoogleR
 from app.utils import (
     generate_password_reset_token,
     generate_reset_password_email,
+    generate_invite_friend_email,
     send_email,
     verify_password_reset_token,
 )
@@ -199,7 +200,6 @@ def reset_password(session: SessionDep, body: NewPassword) -> Message:
     session.commit()
     return Message(message="Password updated successfully")
 
-
 @router.post(
     "/password-recovery-html-content/{email}",
     dependencies=[Depends(get_current_active_superuser)],
@@ -224,3 +224,31 @@ def recover_password_html_content(email: str, session: SessionDep) -> Any:
     return HTMLResponse(
         content=email_data.html_content, headers={"subject:": email_data.subject}
     )
+
+@router.post("/invite-friend")
+def invite_friend(
+    inviter_id: str, email_to: str, deeplink: str, session: SessionDep
+) -> Message:
+    """
+    Invite a friend
+    """
+    invited_user = crud.get_user_by_email(session=session, email=email_to)
+    if invited_user:
+        raise HTTPException(
+            status_code=400,
+            detail="The invited user with this email already exists in the system.",
+        )
+    
+    current_user = crud.get_user_by_id(session=session, user_id=inviter_id)
+    email_data = generate_invite_friend_email(
+        email_to=email_to,
+        username=invited_user.full_name or invited_user.email,
+        inviter_name=current_user.email,
+        deeplink=deeplink
+    )
+    send_email(
+        email_to=email_to,
+        subject=email_data.subject,
+        html_content=email_data.html_content,
+    )
+    return Message(message="Invitation email sent")
