@@ -7,6 +7,7 @@ class Token(SQLModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    user_id: str
 
 class RefreshTokenRequest(SQLModel):
     refresh_token: str

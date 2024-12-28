@@ -169,6 +169,8 @@ $ docker compose exec backend bash
 
 * Alembic is already configured to import your SQLModel models from `./backend/app/models.py`.
 
+* If you are adding a new table make sure that you imported that class in env.py
+
 * After changing a model (for example, adding a column), inside the container, create a revision, e.g.:
 
 ```console

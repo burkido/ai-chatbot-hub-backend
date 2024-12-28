@@ -52,7 +52,8 @@ def login_access_token(
         ),
         refresh_token=security.create_refresh_token(
             user.id, expires_delta=refresh_token_expires
-        )
+        ),
+        user_id=user.id
     )
 
 @router.post("/login-google")
@@ -75,7 +76,8 @@ def google_login(
         ),
         refresh_token=security.create_refresh_token(
             user.id, expires_delta=refresh_token_expires
-        )
+        ),
+        user_id=user.id
     )
 
 @router.post("/refresh-token")
@@ -113,7 +115,8 @@ def refresh_access_token(
         ),
         refresh_token=security.create_refresh_token(
             user.id, expires_delta=refresh_token_expires
-        )
+        ),
+        user_id=user.id
     )
 
 @router.post("/register")
