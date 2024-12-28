@@ -17,3 +17,7 @@ class RedeemCode(SQLModel, table=True):
         if self.is_used:
             # Logic to delete the redeem code from the database
             pass
+
+class RedeemCodesPublic(SQLModel):
+    data: list[RedeemCode]
+    count: int

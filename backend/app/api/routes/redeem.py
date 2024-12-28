@@ -1,14 +1,35 @@
 from fastapi import APIRouter, HTTPException, Depends
-from sqlmodel import select
-from app.models.redeem import RedeemCode
+from sqlmodel import select, func
+from app.models.redeem_code import RedeemCode, RedeemCodesPublic
 from typing import Any
 
-from app.api.deps import SessionDep, get_current_active_superuser
+from app.api.deps import SessionDep, CurrentUser, get_current_active_superuser
 from app.models.user import User
 
 router = APIRouter()
 
-@router.post("/redeem-code/add", response_model=RedeemCode, dependencies=[Depends(get_current_active_superuser)])
+@router.get("/list", response_model=RedeemCodesPublic)
+def read_redeem_codes(
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = 0,
+    limit: int = 100
+) -> Any:
+    if current_user.is_superuser:
+        count_statement = select(func.count()).select_from(RedeemCode)
+        count = session.exec(count_statement).one()
+        statement = select(RedeemCode).offset(skip).limit(limit)
+        redeem_codes = session.exec(statement).all()
+    else:
+        # No user-ownership field on RedeemCode, so this returns everything.
+        count_statement = select(func.count()).select_from(RedeemCode)
+        count = session.exec(count_statement).one()
+        statement = select(RedeemCode).offset(skip).limit(limit)
+        redeem_codes = session.exec(statement).all()
+
+    return RedeemCodesPublic(data=redeem_codes, count=count)
+
+@router.post("/add", response_model=RedeemCode, dependencies=[Depends(get_current_active_superuser)])
 def add_redeem_code(code: str, value: int, session: SessionDep) -> Any:
     existing_code = session.exec(select(RedeemCode).where(RedeemCode.code == code)).first()
     if existing_code:
