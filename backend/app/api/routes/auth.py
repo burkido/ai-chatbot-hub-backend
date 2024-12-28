@@ -118,10 +118,13 @@ def refresh_access_token(
 
 @router.post("/register")
 def register(
-    session: SessionDep, user_create: UserCreate
+    session: SessionDep,
+    user_create: UserCreate,
+    invite_code: str | None = None,
+    inviter_id: str | None = None
 ) -> None:
     """
-    Register a new user
+    Register a new user with optional invite logic
     """
     user = crud.get_user_by_email(session=session, email=user_create.email)
     if user:
@@ -129,11 +132,27 @@ def register(
             status_code=400,
             detail="The user with this email already exists in the system.",
         )
-    crud.create_user(session=session, user_create=user_create)
+    
+    # If invited
+    if invite_code and inviter_id:
+        # Assign 100 credits to new user
+        user_create.credits = 100  # Make sure UserCreate supports this field
+
+    new_user = crud.create_user(session=session, user_create=user_create)
+
+    if invite_code and inviter_id:
+        inviter_user = crud.get_user_by_id(session=session, user_id=inviter_id)
+        if inviter_user:
+            inviter_user.credits += 50  # Make sure 'credits' exists on User
+            session.add(inviter_user)
+            session.commit()
 
 @router.post("/register-google")
 def google_register(
-    session: SessionDep, user_google: UserGoogleRegister
+    session: SessionDep,
+    user_google: UserGoogleRegister,
+    invite_code: str | None = None,
+    inviter_id: str | None = None
 ) -> None:
     """
     Google register
@@ -144,15 +163,18 @@ def google_register(
             status_code=409,
             detail="The user with this email already exists in the system.",
         )
-    crud.create_user(session=session, user_google=user_google)
+    
+    if invite_code and inviter_id:
+        user_google.credits = 100
 
-@router.post("/test-token", response_model=UserPublic)
-def test_token(current_user: CurrentUser) -> Any:
-    """
-    Test access token
-    """
-    return current_user
+    new_user = crud.create_user(session=session, user_google=user_google)
 
+    if invite_code and inviter_id:
+        inviter_user = crud.get_user_by_id(session=session, user_id=inviter_id)
+        if inviter_user:
+            inviter_user.credits += 50
+            session.add(inviter_user)
+            session.commit()
 
 @router.post("/password-recovery/{email}")
 def recover_password(email: str, session: SessionDep) -> Message:
@@ -227,11 +249,12 @@ def recover_password_html_content(email: str, session: SessionDep) -> Any:
 
 @router.post("/invite-friend")
 def invite_friend(
-    inviter_id: str, email_to: str, deeplink: str, session: SessionDep
+    inviter_id: str, email_to: str, session: SessionDep
 ) -> Message:
     """
     Invite a friend
     """
+    deeplink = "https://www.example.com"
     invited_user = crud.get_user_by_email(session=session, email=email_to)
     if invited_user:
         raise HTTPException(
@@ -252,3 +275,10 @@ def invite_friend(
         html_content=email_data.html_content,
     )
     return Message(message="Invitation email sent")
+
+@router.post("/test-token", response_model=UserPublic)
+def test_token(current_user: CurrentUser) -> Any:
+    """
+    Test access token
+    """
+    return current_user

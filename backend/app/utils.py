@@ -39,15 +39,22 @@ def send_email(
         mail_from=(settings.EMAILS_FROM_NAME, settings.EMAILS_FROM_EMAIL),
     )
     smtp_options = {"host": settings.SMTP_HOST, "port": settings.SMTP_PORT}
+    print("SMTP Username is: ", settings.SMTP_USER, "SMTP Password is: ", settings.SMTP_PASSWORD)
     if settings.SMTP_TLS:
+        print("SMTP TLS is enabled")
         smtp_options["tls"] = True
     elif settings.SMTP_SSL:
+        print("SMTP SSL is enabled")
         smtp_options["ssl"] = True
     if settings.SMTP_USER:
+        print("SMTP User is enabled")
         smtp_options["user"] = settings.SMTP_USER
     if settings.SMTP_PASSWORD:
+        print("SMTP Password is enabled")
         smtp_options["password"] = settings.SMTP_PASSWORD
+    print("Email to is: ", email_to, "with ", smtp_options)
     response = message.send(to=email_to, smtp=smtp_options)
+    print("Email response is: ", response)
     logging.info(f"send email result: {response}")
 
 
