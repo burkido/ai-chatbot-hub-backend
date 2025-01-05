@@ -16,6 +16,7 @@ from langchain_openai import OpenAIEmbeddings
 
 router = APIRouter()
 
+# it can adapt for managing multiple indexes
 index_name = "langchain-retrieval-augmentation"
 
 # Dependency for ChatOpenAI instance

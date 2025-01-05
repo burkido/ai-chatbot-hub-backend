@@ -13,7 +13,6 @@ from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.core import security
 from app.core.config import settings
 from app.core.security import get_password_hash
-#from app.models.models import Message, Token, UserPublic, NewPassword, Message
 from app.models.token import Message, Token, RefreshTokenRequest, NewPassword
 from app.models.user import UserPublic, UserCreate, UserGoogleLogin, UserGoogleRegister
 
