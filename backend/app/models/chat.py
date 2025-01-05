@@ -9,3 +9,7 @@ class ChatRequest(BaseModel):
     history: List[ChatMessage]  # Full conversation history, including user and assistant messages
     message: str  # The new user message to be appended
     namespace: str  # The namespace for the chat request
+
+class ChatResponse(BaseModel):
+    content: str
+    title: str | None = None

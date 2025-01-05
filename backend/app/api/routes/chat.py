@@ -4,9 +4,8 @@ from fastapi import APIRouter, HTTPException, Depends
 
 from app import crud
 from app.api.deps import SessionDep, CurrentUser
-#from app.models.models import User, ChatMessage, ChatRequest
 from app.models.user import User
-from app.models.chat import ChatMessage, ChatRequest
+from app.models.chat import ChatMessage, ChatRequest, ChatResponse
 
 from typing import List
 
@@ -30,10 +29,36 @@ def get_chat_openai() -> ChatOpenAI:
 def get_vectorstore() -> PineconeVectorStore:
     return PineconeVectorStore(index_name=index_name, embedding=OpenAIEmbeddings())
 
+@router.post("/", response_model=ChatResponse)
+def chat_endpoint(
+    chat_request: ChatRequest,
+    session: SessionDep,
+    current_user: CurrentUser,
+    chat_model: ChatOpenAI = Depends(get_chat_openai),
+    vectorstore: PineconeVectorStore = Depends(get_vectorstore)
+) -> ChatResponse:
+    user = session.get(User, current_user.id)
+    if user.credit < 1:
+        raise HTTPException(status_code=400, detail="Insufficient credits")
+    
+    crud.decrease_user_credit(session=session, user=user, amount=1)
+    
+    response = chat(chat_request.message, chat_request.namespace, chat_model, chat_request.history, vectorstore)
+    
+    # Generate title if this is the first message
+    title = None
+    if len(chat_request.history) == 0:
+        title = generate_title(chat_request.message, chat_model)
+        
+    return ChatResponse(content=response, title=title)
 
-def augment_prompt(query: str, vectorstore: PineconeVectorStore):
+def augment_prompt(
+        query: str,
+        namespace: str,
+        vectorstore: PineconeVectorStore
+):
     # get top 3 results from knowledge base
-    results = vectorstore.similarity_search(query=query, k=3, namespace='new-setup-test-namespace')
+    results = vectorstore.similarity_search(query=query, k=10, namespace=namespace)
     # get the text from the results
     source_knowledge = "\n".join([x.page_content for x in results])
     # feed into an augmented prompt
@@ -45,7 +70,13 @@ def augment_prompt(query: str, vectorstore: PineconeVectorStore):
     Query: {query}"""
     return augmented_prompt
 
-def chat(new_message: str, chat_model: ChatOpenAI, history: List[ChatMessage], vectorstore: PineconeVectorStore) -> str:
+def chat(
+        new_message: str,
+        namespace: str,
+        chat_model: ChatOpenAI,
+        history: List[ChatMessage],
+        vectorstore: PineconeVectorStore
+) -> str:
     langchain_messages = []
     for msg in history:
         if msg.role == "system":
@@ -61,7 +92,7 @@ def chat(new_message: str, chat_model: ChatOpenAI, history: List[ChatMessage], v
     langchain_messages.append(HumanMessage(content=new_message))
 
     # Augment the prompt with RAG
-    augmented_prompt = augment_prompt(new_message, vectorstore)
+    augmented_prompt = augment_prompt(new_message, namespace, vectorstore)
     langchain_messages.append(HumanMessage(content=augmented_prompt))
 
     # Get the assistant's response
@@ -69,28 +100,7 @@ def chat(new_message: str, chat_model: ChatOpenAI, history: List[ChatMessage], v
     
     return response.content
 
-@router.post("/", response_model=str)
-def chat_endpoint(
-    chat_request: ChatRequest,
-    session: SessionDep,
-    current_user: CurrentUser,
-    chat_model: ChatOpenAI = Depends(get_chat_openai),
-    vectorstore: PineconeVectorStore = Depends(get_vectorstore)
-) -> str:
-    """
-    Chat with the assistant and decrease the user's credit.
-    """
-    # Get the current user from the database
-    user = session.get(User, current_user.id)
-
-    # Check if the user has enough credits
-    if user.credit < 1:
-        raise HTTPException(status_code=400, detail="Insufficient credits")
-    
-    # Decrease the user's credit
-    crud.decrease_user_credit(session=session, user=user, amount=1)
-    
-    # Get the chat response
-    response = chat(chat_request.message, chat_model, chat_request.history, vectorstore)
-    
-    return response
+def generate_title(message: str, chat_model: ChatOpenAI) -> str:
+    prompt = HumanMessage(content=f"Create a very brief title (4 words max) for this message: '{message}'")
+    response = chat_model([prompt])
+    return response.content.strip()
