@@ -52,7 +52,7 @@ def login_access_token(
         refresh_token=security.create_refresh_token(
             user.id, expires_delta=refresh_token_expires
         ),
-        user_id=user.id
+        user_id=str(user.id)  # Convert UUID to string
     )
 
 @router.post("/login-google")
