@@ -9,6 +9,7 @@ class UserBase(SQLModel):
     full_name: str | None = Field(default=None, max_length=255)
     credit: int = Field(default=7, ge=0)
     google_id: str | None = Field(default=None, index=True)
+    is_premium: bool = False
 
 class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=40)
