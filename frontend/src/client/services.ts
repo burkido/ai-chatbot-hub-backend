@@ -18,7 +18,7 @@ import type {
   ItemPublic,
   ItemsPublic,
   ItemUpdate,
-  DocumentCreate
+  DocumentCreate,
 } from "./models"
 
 export type TDataLoginAccessToken = {
@@ -415,8 +415,10 @@ export class DocumentService {
   /**
    * Send documents to API
    * @throws ApiError
-  */
- public static sendDocuments(data: TDataUploadDocument): CancelablePromise<Message> {
+   */
+  public static sendDocuments(
+    data: TDataUploadDocument,
+  ): CancelablePromise<Message> {
     const { requestBody } = data
     return __request(OpenAPI, {
       method: "POST",
@@ -540,7 +542,6 @@ export class ItemsService {
   }
 }
 
-
 export class FileUploadService {
   /**
    * Upload Document
@@ -548,9 +549,9 @@ export class FileUploadService {
    * @returns Message Successful Response
    * @throws ApiError
    */
-  public static uploadDocument(
-    data: { formData: FormData },
-  ): CancelablePromise<Message> {
+  public static uploadDocument(data: {
+    formData: FormData
+  }): CancelablePromise<Message> {
     return __request(OpenAPI, {
       method: "POST",
       url: "/api/v1/documents/upload-document/",
@@ -559,7 +560,7 @@ export class FileUploadService {
       errors: {
         422: `Validation Error`,
       },
-    });
+    })
   }
 }
 
@@ -571,7 +572,10 @@ export class FileDeleteService {
    * @returns Message Successful Response
    * @throws ApiError
    */
-  public static deleteDocument(data: { title?: string; source?: string }): CancelablePromise<{ message: string; filters: Record<string, any> }> {
+  public static deleteDocument(data: {
+    title?: string
+    source?: string
+  }): CancelablePromise<{ message: string; filters: Record<string, any> }> {
     return __request(OpenAPI, {
       method: "DELETE",
       url: "/api/v1/documents/delete-document",
@@ -582,6 +586,6 @@ export class FileDeleteService {
         422: `Validation Error`,
         500: `An error occurred: {error_message}`,
       },
-    });
+    })
   }
 }
