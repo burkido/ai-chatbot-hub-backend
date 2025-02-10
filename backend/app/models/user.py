@@ -1,6 +1,10 @@
 import uuid
+from typing import TYPE_CHECKING, Optional, List
 from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from .item import Item
 
 class UserBase(SQLModel):
     email: EmailStr = Field(unique=True, index=True, max_length=255)
@@ -36,8 +40,8 @@ class UpdateCredit(SQLModel):
 
 class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    hashed_password: str | None = None
-    items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
+    hashed_password: Optional[str] = None
+    items: List["Item"] = Relationship(back_populates="owner", cascade_delete=True)
 
 class UserPublic(UserBase):
     id: uuid.UUID

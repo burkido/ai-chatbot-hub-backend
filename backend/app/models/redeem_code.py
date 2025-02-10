@@ -7,13 +7,13 @@ class RedeemCode(SQLModel, table=True):
     value: int = Field(ge=50)
     is_used: bool = Field(default=False)
 
-    def use_code(self):
+    def use_code(self) -> int:
         if not self.is_used:
             self.is_used = True
             return self.value
         return 0
 
-    def delete_code(self):
+    def delete_code(self) -> None:
         if self.is_used:
             # Logic to delete the redeem code from the database
             pass
