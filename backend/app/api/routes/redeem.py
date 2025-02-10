@@ -41,7 +41,7 @@ def add_redeem_code(code: str, value: int, session: SessionDep) -> Any:
     session.refresh(redeem_code)
     return redeem_code
 
-@router.post("/use/{code}", response_model=User)
+@router.post("/use", response_model=User)
 def use_redeem_code(code: str, user_id: str, session: SessionDep) -> Any:
     redeem_code = session.exec(select(RedeemCode).where(RedeemCode.code == code)).first()
     if not redeem_code or redeem_code.is_used:

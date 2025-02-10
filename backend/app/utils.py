@@ -2,7 +2,7 @@ import os, json, fitz, logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, TypedDict
 
 import emails  # type: ignore
 import jwt
@@ -165,21 +165,31 @@ class JSONProcessor:
 import os
 import fitz  # PyMuPDF library
 
+class PDFMetadata(TypedDict):
+    title: str
+    author: str
+
+class PDFData(TypedDict):
+    id: str
+    text: str
+    source: str
+    metadata: PDFMetadata
+
 class Parser:
-    def __init__(self, file_path, title, author, source):
+    def __init__(self, file_path: str, title: str, author: str, source: str) -> None:
         self.file_path = file_path
         self.title = title
         self.author = author
         self.source = source
         self.pdf_data = self.read_pdf()
 
-    def read_pdf(self):
+    def read_pdf(self) -> PDFData:
         pdf_content = ''
         with fitz.open(self.file_path) as file:
             for page in file:
                 pdf_content += page.get_text().strip()
 
-        metadata = {
+        metadata: PDFMetadata = {
             'title': self.title,
             'author': self.author
         }

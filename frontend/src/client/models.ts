@@ -12,8 +12,8 @@ export type HTTPValidationError = {
 }
 
 export type DocumentCreate = {
-  index_name: string,
-  namespace?: string | null,
+  index_name: string
+  namespace?: string | null
   file: File
 }
 

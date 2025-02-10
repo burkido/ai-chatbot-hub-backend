@@ -8,6 +8,8 @@ class Token(SQLModel):
     refresh_token: str
     token_type: str = "bearer"
     user_id: str
+    is_premium: bool = False
+    remaining_credit: int
 
 class RefreshTokenRequest(SQLModel):
     refresh_token: str
