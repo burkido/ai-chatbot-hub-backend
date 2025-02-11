@@ -45,10 +45,10 @@ services:
     ports:
       - "5432:5432"
 
-  adminer:
-    restart: "no"
-    ports:
-      - "8080:8080"
+  #adminer:
+  #  restart: "no"
+  #  ports:
+  #    - "8080:8080"
 
   backend:
     restart: "no"
@@ -74,13 +74,13 @@ services:
       - "1080:1080"
       - "1025:1025"
 
-  frontend:
-    restart: "no"
-    build:
-      context: ./frontend
-      args:
-        - VITE_API_URL=http://${DOMAIN?Variable not set}
-        - NODE_ENV=development
+  #frontend:
+  #  restart: "no"
+  #  build:
+  #    context: ./frontend
+  #    args:
+  #      - VITE_API_URL=http://${DOMAIN?Variable not set}
+  #      - NODE_ENV=development
 
 networks:
   traefik-public:
