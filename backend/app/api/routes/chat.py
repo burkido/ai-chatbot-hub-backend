@@ -63,7 +63,7 @@ def augment_prompt(
     # get the text from the results
     source_knowledge = "\n".join([x.page_content for x in results])
     # feed into an augmented prompt
-    augmented_prompt = f"""Using the contexts below, answer the query.
+    augmented_prompt = f"""Using the contexts below, answer the query. Answer according to prompted langugage. If you don't know the answer, you can say "I don't know. If you want to notify the problem, please send us a message by clicking the menu item ontop right of the screen."
 
     Contexts:
     {source_knowledge}
