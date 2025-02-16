@@ -17,7 +17,7 @@ from langchain_openai import OpenAIEmbeddings
 router = APIRouter()
 
 # it can adapt for managing multiple indexes
-index_name = "langchain-retrieval-augmentation"
+index_name = "assistant-ai"
 
 # Dependency for ChatOpenAI instance
 def get_chat_openai() -> ChatOpenAI:
@@ -44,26 +44,39 @@ def chat_endpoint(
     
     crud.decrease_user_credit(session=session, user=user, amount=1)
     
-    response = chat(chat_request.message, chat_request.namespace, chat_model, chat_request.history, vectorstore)
+    response = chat(
+        chat_request.message, 
+        chat_request.namespace,
+        chat_request.title,  # Pass title to chat function
+        chat_model, 
+        chat_request.history, 
+        vectorstore
+    )
     
-    # Generate title if this is the first message
+    # Generate title if this is the first message and no title provided
     title = None
-    if len(chat_request.history) == 0:
+    if len(chat_request.history) == 0 and not chat_request.title:
         title = generate_title(chat_request.message, chat_model)
         
     return ChatResponse(content=response, title=title)
 
 def augment_prompt(
         query: str,
+        title: str,
         namespace: str,
         vectorstore: PineconeVectorStore
 ):
     # get top 3 results from knowledge base
-    results = vectorstore.similarity_search(query=query, k=10, namespace=namespace)
+    results = vectorstore.similarity_search(
+        query=query,
+        k=10,
+        filter = {"title": {"$eq": title}},
+        namespace=namespace
+    )
     # get the text from the results
     source_knowledge = "\n".join([x.page_content for x in results])
     # feed into an augmented prompt
-    augmented_prompt = f"""Using the contexts below, answer the query.
+    augmented_prompt = f"""Using the contexts below, answer the query. Answer according to prompted langugage. If you don't know the answer, you can say "I don't know. If you want to notify the problem, please send us a message by clicking the menu item ontop right of the screen."
 
     Contexts:
     {source_knowledge}
@@ -74,6 +87,7 @@ def augment_prompt(
 def chat(
         new_message: str,
         namespace: str,
+        title: str,
         chat_model: ChatOpenAI,
         history: List[ChatMessage],
         vectorstore: PineconeVectorStore
@@ -93,7 +107,7 @@ def chat(
     langchain_messages.append(HumanMessage(content=new_message))
 
     # Augment the prompt with RAG
-    augmented_prompt = augment_prompt(new_message, namespace, vectorstore)
+    augmented_prompt = augment_prompt(new_message, title, namespace, vectorstore)
     langchain_messages.append(HumanMessage(content=augmented_prompt))
 
     # Get the assistant's response

@@ -87,31 +87,36 @@ async def upload_document(
         # Prepare and insert chunks with metadata into Pinecone
         batch_limit = 100
         texts, metadatas = [], []
+        chunk_counter = 0  # Global counter for chunks
+        document_id = str(uuid4())[:8]  # Create a unique document identifier
 
         for i, text_chunk in enumerate(chunks):
             metadata = {
                 'title': title,
                 'source': source,
-                'category': namespace or 'Default'
+                'category': namespace or 'Default',
+                'document_id': document_id  # Add document_id to metadata
             }
             texts.append(text_chunk)
             metadatas.append({
-                "chunk": i,
+                "chunk": chunk_counter,  # Use the global counter
                 "text": text_chunk,
                 **metadata
             })
 
             if len(texts) >= batch_limit:
-                ids = [f"{title.replace(' ', '_').lower()}_chunk_{i}" for i in range(len(texts))]
-                print("ids", ids)
+                # Generate unique IDs using document_id and chunk_counter
+                ids = [f"{document_id}_chunk_{i+chunk_counter}" for i in range(len(texts))]
+                print("Batch IDs:", ids)
                 embeds = embed.embed_documents(texts)
                 index.upsert(vectors=list(zip(ids, embeds, metadatas)), namespace=namespace)
+                chunk_counter += len(texts)  # Increment the counter by batch size
                 texts, metadatas = [], []
 
         # Insert remaining data
         if texts:
-            ids = [f"{title.replace(' ', '_').lower()}_chunk_{i}" for i in range(len(texts))]
-            print("ids below", ids)
+            ids = [f"{document_id}_chunk_{i+chunk_counter}" for i in range(len(texts))]
+            print("Final batch IDs:", ids)
             embeds = embed.embed_documents(texts)
             index.upsert(vectors=list(zip(ids, embeds, metadatas)), namespace=namespace)
 
