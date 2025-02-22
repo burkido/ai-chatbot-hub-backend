@@ -40,22 +40,21 @@ def chat_endpoint(
 ) -> ChatResponse:
     user = session.get(User, current_user.id)
     if user.credit < 1:
-        raise HTTPException(status_code=400, detail="Insufficient credits")
+        raise HTTPException(status_code=402, detail="Insufficient credits")
     
     crud.decrease_user_credit(session=session, user=user, amount=1)
     
     response = chat(
         chat_request.message, 
         chat_request.namespace,
-        chat_request.title,  # Pass title to chat function
+        chat_request.title,
         chat_model, 
         chat_request.history, 
         vectorstore
     )
     
-    # Generate title if this is the first message and no title provided
     title = None
-    if len(chat_request.history) == 0 and not chat_request.title:
+    if len(chat_request.history) == 0:
         title = generate_title(chat_request.message, chat_model)
         
     return ChatResponse(content=response, title=title)
