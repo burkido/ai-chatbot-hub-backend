@@ -75,10 +75,12 @@ function UsersTable() {
         <Table size={{ base: "sm", md: "md" }}>
           <Thead>
             <Tr>
-              <Th width="20%">Full name</Th>
-              <Th width="50%">Email</Th>
+              <Th width="15%">Full name</Th>
+              <Th width="35%">Email</Th>
               <Th width="10%">Role</Th>
               <Th width="10%">Status</Th>
+              <Th width="10%">Credit</Th>
+              <Th width="10%">Premium</Th>
               <Th width="10%">Actions</Th>
             </Tr>
           </Thead>
@@ -123,6 +125,12 @@ function UsersTable() {
                       />
                       {user.is_active ? "Active" : "Inactive"}
                     </Flex>
+                  </Td>
+                  <Td>{user.credit}</Td>
+                  <Td>
+                    <Badge colorScheme={user.is_premium ? "green" : "gray"}>
+                      {user.is_premium ? "Premium" : "Free"}
+                    </Badge>
                   </Td>
                   <Td>
                     <ActionsMenu

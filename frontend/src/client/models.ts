@@ -72,6 +72,8 @@ export type UserPublic = {
   is_superuser?: boolean
   full_name?: string | null
   id: string
+  credit: number
+  is_premium: boolean
 }
 
 export type UserRegister = {
@@ -86,6 +88,8 @@ export type UserUpdate = {
   is_superuser?: boolean
   full_name?: string | null
   password?: string | null
+  credit?: number
+  is_premium?: boolean
 }
 
 export type UserUpdateMe = {

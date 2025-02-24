@@ -13,16 +13,16 @@ import {
   ModalFooter,
   ModalHeader,
   ModalOverlay,
+  NumberInput,
+  NumberInputField,
+  Stack,
+  useToast,
 } from "@chakra-ui/react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { type SubmitHandler, useForm } from "react-hook-form"
+import { useEffect } from "react"
+import { useForm, type SubmitHandler } from "react-hook-form"
 
-import {
-  type ApiError,
-  type UserPublic,
-  type UserUpdate,
-  UsersService,
-} from "../../client"
+import { type ApiError, type UserPublic, type UserUpdate, UsersService } from "../../client"
 import useCustomToast from "../../hooks/useCustomToast"
 import { emailPattern, handleError } from "../../utils"
 
@@ -34,23 +34,38 @@ interface EditUserProps {
 
 interface UserUpdateForm extends UserUpdate {
   confirm_password: string
+  credit: number
+  is_premium: boolean
 }
 
 const EditUser = ({ user, isOpen, onClose }: EditUserProps) => {
   const queryClient = useQueryClient()
   const showToast = useCustomToast()
+  const toast = useToast()
 
   const {
     register,
     handleSubmit,
     reset,
     getValues,
+    setValue,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<UserUpdateForm>({
     mode: "onBlur",
     criteriaMode: "all",
     defaultValues: user,
   })
+
+  useEffect(() => {
+    if (user) {
+      setValue("email", user.email)
+      setValue("full_name", user.full_name || "")
+      setValue("is_active", user.is_active)
+      setValue("is_superuser", user.is_superuser)
+      setValue("credit", user.credit)
+      setValue("is_premium", user.is_premium)
+    }
+  }, [user, setValue])
 
   const mutation = useMutation({
     mutationFn: (data: UserUpdateForm) =>
@@ -146,18 +161,29 @@ const EditUser = ({ user, isOpen, onClose }: EditUserProps) => {
                 </FormErrorMessage>
               )}
             </FormControl>
-            <Flex>
-              <FormControl mt={4}>
+            <FormControl mt={4}>
+              <FormLabel htmlFor="credit">Credit</FormLabel>
+              <NumberInput min={0}>
+                <NumberInputField id="credit" {...register("credit")} />
+              </NumberInput>
+            </FormControl>
+            <Stack spacing={2} mt={4}>
+              <FormControl>
                 <Checkbox {...register("is_superuser")} colorScheme="teal">
                   Is superuser?
                 </Checkbox>
               </FormControl>
-              <FormControl mt={4}>
+              <FormControl>
                 <Checkbox {...register("is_active")} colorScheme="teal">
                   Is active?
                 </Checkbox>
               </FormControl>
-            </Flex>
+              <FormControl>
+                <Checkbox {...register("is_premium")} colorScheme="teal">
+                  Is premium?
+                </Checkbox>
+              </FormControl>
+            </Stack>
           </ModalBody>
 
           <ModalFooter gap={3}>
