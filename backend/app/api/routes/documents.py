@@ -124,7 +124,11 @@ async def upload_document(
         # Remove the temporary file
         os.remove(file_path)
 
-        return {"message": "Successfully parsed the PDF file and added it to the knowledge base"}
+        # Update the return response to include document_id
+        return {
+            "message": "Successfully parsed the PDF file and added it to the knowledge base",
+            "document_id": document_id
+        }
     except Exception as e:
         print("An error occurred:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
@@ -133,32 +137,37 @@ async def upload_document(
 @router.delete("/delete-document")
 async def delete_document(request: DeleteDocumentRequest):
     """
-    Deletes all records in the Pinecone index that match the given title.
+    Deletes all records in the Pinecone index that match the given document_id.
     """
     try:
-        # Validate input: Title must be provided
-        if not request.title:
+        # Validate input: document_id must be provided
+        if not request.document_id:
             raise HTTPException(
                 status_code=400,
-                detail="You must provide a 'title' for deletion."
+                detail="You must provide a 'document_id' for deletion."
             )
 
-        # Generate title-based prefix for deletion
-        title_prefix = f"{request.title.replace(' ', '_').lower()}_chunk_"
-
         # Connect to the Pinecone index
-        index = pc.Index("test-latest-index")
-        namespace = "test-latest-namespace"
+        index = pc.Index("assistant-ai")
+        namespace = "doctor-ai"
 
-        # Fetch all IDs matching the prefix
-        all_ids = []
-        for ids in index.list(prefix=title_prefix, namespace=namespace):
-            all_ids.extend(ids)
+        # Delete all chunks with the document_id prefix
+        document_prefix = f"{request.document_id}_chunk_"
+        deleted_ids = []
+
+        for ids in index.list(prefix=document_prefix, namespace=namespace):
+            deleted_ids.extend(ids)
             index.delete(ids=ids, namespace=namespace)
 
+        if not deleted_ids:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No documents found with document_id '{request.document_id}'"
+            )
+
         return {
-            "message": f"Successfully deleted all chunks for title '{request.title}'.",
-            "deleted_ids": all_ids,
+            "message": f"Successfully deleted all chunks for document_id '{request.document_id}'",
+            "deleted_ids": deleted_ids
         }
 
     except Exception as e:

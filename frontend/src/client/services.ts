@@ -567,22 +567,22 @@ export class FileUploadService {
 export class FileDeleteService {
   /**
    * Delete Document
-   * Deletes all records in the Pinecone index that match the given metadata filter.
-   * @param data The request data containing title or source
+   * Deletes all records in the Pinecone index that match the given document_id.
+   * @param data The request data containing document_id
    * @returns Message Successful Response
    * @throws ApiError
    */
   public static deleteDocument(data: {
-    title?: string
-    source?: string
-  }): CancelablePromise<{ message: string; filters: Record<string, any> }> {
+    document_id: string
+  }): CancelablePromise<{ message: string; deleted_ids: string[] }> {
     return __request(OpenAPI, {
       method: "DELETE",
       url: "/api/v1/documents/delete-document",
       body: data,
       mediaType: "application/json",
       errors: {
-        400: `You must provide either a 'title' or a 'source' for deletion.`,
+        400: `You must provide a 'document_id' for deletion.`,
+        404: `No documents found with the given document_id`,
         422: `Validation Error`,
         500: `An error occurred: {error_message}`,
       },

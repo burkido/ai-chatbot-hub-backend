@@ -36,6 +36,7 @@ function UploadPDF() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState(false);
+  const [documentId, setDocumentId] = useState('');
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -116,21 +117,22 @@ function UploadPDF() {
   };
 
   const deleteMutation = useMutation({
-    mutationFn: async (data: { title?: string; source?: string }) => {
+    mutationFn: async (data: { document_id: string }) => {
       return FileDeleteService.deleteDocument(data);
     },
     onSuccess: () => {
       toast({
-        title: 'File deleted successfully',
+        title: 'Document deleted successfully',
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
       setIsLoading(false);
+      setDocumentId('');
     },
     onError: (error: any) => {
       toast({
-        title: 'File deletion failed',
+        title: 'Document deletion failed',
         description: error.message,
         status: 'error',
         duration: 3000,
@@ -141,10 +143,10 @@ function UploadPDF() {
   });
 
   const confirmDelete = async () => {
-    if (!title && !source) {
+    if (!documentId) {
       toast({
         title: "Error",
-        description: "You must provide either a 'title' or a 'source' for deletion.",
+        description: "You must provide a document ID for deletion.",
         status: "error",
         duration: 2000,
         isClosable: true,
@@ -152,7 +154,7 @@ function UploadPDF() {
       return;
     }
 
-    deleteMutation.mutate({ title, source });
+    deleteMutation.mutate({ document_id: documentId });
   };
 
   return (
@@ -243,22 +245,12 @@ function UploadPDF() {
           </TabPanel>
           <TabPanel>
             <FormControl>
-              <FormLabel htmlFor="title">Title</FormLabel>
+              <FormLabel htmlFor="documentId">Document ID</FormLabel>
               <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Title"
-                type="text"
-              />
-            </FormControl>
-            <FormControl mt={4}>
-              <FormLabel htmlFor="source">Source</FormLabel>
-              <Input
-                id="source"
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                placeholder="Source"
+                id="documentId"
+                value={documentId}
+                onChange={(e) => setDocumentId(e.target.value)}
+                placeholder="Document ID"
                 type="text"
               />
             </FormControl>
