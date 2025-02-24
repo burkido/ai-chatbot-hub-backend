@@ -89,6 +89,9 @@ async def upload_document(
         texts, metadatas = [], []
         chunk_counter = 0  # Global counter for chunks
         document_id = str(uuid4())[:8]  # Create a unique document identifier
+        
+        # Create normalized title prefix
+        title_prefix = title.lower().replace(" ", "_")
 
         for i, text_chunk in enumerate(chunks):
             metadata = {
@@ -105,8 +108,8 @@ async def upload_document(
             })
 
             if len(texts) >= batch_limit:
-                # Generate unique IDs using document_id and chunk_counter
-                ids = [f"{document_id}_chunk_{i+chunk_counter}" for i in range(len(texts))]
+                # Generate IDs with title prefix
+                ids = [f"{title_prefix}_{document_id}_chunk_{i+chunk_counter}" for i in range(len(texts))]
                 print("Batch IDs:", ids)
                 embeds = embed.embed_documents(texts)
                 index.upsert(vectors=list(zip(ids, embeds, metadatas)), namespace=namespace)
@@ -115,7 +118,7 @@ async def upload_document(
 
         # Insert remaining data
         if texts:
-            ids = [f"{document_id}_chunk_{i+chunk_counter}" for i in range(len(texts))]
+            ids = [f"{title_prefix}_{document_id}_chunk_{i+chunk_counter}" for i in range(len(texts))]
             print("Final batch IDs:", ids)
             embeds = embed.embed_documents(texts)
             index.upsert(vectors=list(zip(ids, embeds, metadatas)), namespace=namespace)
@@ -151,13 +154,14 @@ async def delete_document(request: DeleteDocumentRequest):
         index = pc.Index("assistant-ai")
         namespace = "doctor-ai"
 
-        # Delete all chunks with the document_id prefix
-        document_prefix = f"{request.document_id}_chunk_"
+        # Modified to handle title prefix
         deleted_ids = []
-
-        for ids in index.list(prefix=document_prefix, namespace=namespace):
-            deleted_ids.extend(ids)
-            index.delete(ids=ids, namespace=namespace)
+        for ids in index.list(namespace=namespace):
+            # Filter IDs that contain the document_id
+            matching_ids = [id for id in ids if request.document_id in id]
+            if matching_ids:
+                deleted_ids.extend(matching_ids)
+                index.delete(ids=matching_ids, namespace=namespace)
 
         if not deleted_ids:
             raise HTTPException(

@@ -25,8 +25,8 @@ export const Route = createFileRoute('/_layout/upload-document')({
 });
 
 function UploadPDF() {
-  const [namespace, setNamespace] = useState('');
-  const [indexName, setIndexName] = useState('quickstart-index');
+  const [namespace, setNamespace] = useState('doctor-ai');
+  const [indexName, setIndexName] = useState('assistant-ai');
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [title, setTitle] = useState('');
@@ -166,16 +166,6 @@ function UploadPDF() {
         </TabList>
         <TabPanels>
           <TabPanel>
-            <FormControl isRequired>
-              <FormLabel htmlFor="namespace">Namespace</FormLabel>
-              <Input
-                id="namespace"
-                value={namespace}
-                onChange={(e) => setNamespace(e.target.value)}
-                placeholder="Namespace"
-                type="text"
-              />
-            </FormControl>
             <FormControl mt={4} isRequired>
               <FormLabel htmlFor="indexName">Index Name</FormLabel>
               <Input
@@ -183,6 +173,16 @@ function UploadPDF() {
                 value={indexName}
                 onChange={(e) => setIndexName(e.target.value)}
                 placeholder="Index Name"
+                type="text"
+              />
+            </FormControl>
+            <FormControl mt={4} isRequired>
+              <FormLabel htmlFor="namespace">Namespace</FormLabel>
+              <Input
+                id="namespace"
+                value={namespace}
+                onChange={(e) => setNamespace(e.target.value)}
+                placeholder="Namespace"
                 type="text"
               />
             </FormControl>
