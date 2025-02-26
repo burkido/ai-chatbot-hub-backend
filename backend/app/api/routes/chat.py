@@ -7,7 +7,7 @@ from app.api.deps import SessionDep, CurrentUser
 from app.models.user import User
 from app.models.chat import ChatMessage, ChatRequest, ChatResponse
 
-from typing import List
+from typing import List, Dict, Any
 
 from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage, AIMessage
@@ -44,7 +44,7 @@ def chat_endpoint(
             raise HTTPException(status_code=402, detail="Insufficient credits")
         crud.decrease_user_credit(session=session, user=user, amount=1)
     
-    response = chat(
+    response, sources = chat(
         chat_request.message, 
         chat_request.namespace,
         chat_request.topic,
@@ -57,7 +57,7 @@ def chat_endpoint(
     if len(chat_request.history) == 0:
         title = generate_title(chat_request.message, chat_model)
         
-    return ChatResponse(content=response, title=title)
+    return ChatResponse(content=response, title=title, sources=sources)
 
 def augment_prompt(
         query: str,
@@ -74,8 +74,21 @@ def augment_prompt(
     )
 
     print(f"Results: {results}")
-    # get the text from the results
+    
+    # Extract sources information - excluding page_content
+    sources = []
+    for doc in results:
+        if hasattr(doc, 'metadata'):
+            source_info = {
+                "authors": doc.metadata.get("authors", "Unknown"),
+                "book_title": doc.metadata.get("book_title", "Untitled"),
+                "source": doc.metadata.get("source", ""),
+            }
+            sources.append(source_info)
+    
+    # get the text from the results (still need this for the AI to generate a response)
     source_knowledge = "\n".join([x.page_content for x in results])
+    
     # feed into an augmented prompt
     augmented_prompt = f"""Using the contexts below, answer the query. Answer according to prompted langugage. If you don't know the answer, you can say "I don't know. If you want to notify the problem, please send us a message by clicking the menu item ontop right of the screen."
 
@@ -83,7 +96,7 @@ def augment_prompt(
     {source_knowledge}
 
     Query: {query}"""
-    return augmented_prompt
+    return augmented_prompt, sources
 
 def chat(
         new_message: str,
@@ -92,7 +105,7 @@ def chat(
         chat_model: ChatOpenAI,
         history: List[ChatMessage],
         vectorstore: PineconeVectorStore
-) -> str:
+) -> tuple[str, List[Dict[str, Any]]]:
     langchain_messages = []
     for msg in history:
         if msg.role == "system":
@@ -107,14 +120,14 @@ def chat(
     # Add the new user message
     langchain_messages.append(HumanMessage(content=new_message))
 
-    # Augment the prompt with RAG
-    augmented_prompt = augment_prompt(new_message, namespace, topic, vectorstore)
+    # Augment the prompt with RAG and get the sources
+    augmented_prompt, sources = augment_prompt(new_message, namespace, topic, vectorstore)
     langchain_messages.append(HumanMessage(content=augmented_prompt))
 
     # Get the assistant's response
     response = chat_model(langchain_messages)
     
-    return response.content
+    return response.content, sources
 
 def generate_title(message: str, chat_model: ChatOpenAI) -> str:
     prompt = HumanMessage(content=f"Create a very brief title (4 words max) for this message: '{message}'")

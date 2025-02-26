@@ -83,9 +83,6 @@ async def upload_document(
         index = pc.Index(index_name)
         time.sleep(1)
 
-        # Metadata fields
-        texts = []
-        metadatas = []
         # Prepare and insert chunks with metadata into Pinecone
         batch_limit = 100
         texts, metadatas = [], []

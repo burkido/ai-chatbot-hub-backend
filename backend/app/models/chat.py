@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict, Any
 
 class ChatMessage(BaseModel):
     role: str  # "system", "user", or "assistant"
@@ -14,3 +14,4 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     content: str
     title: str | None = None
+    sources: List[Dict[str, Any]] | None = None  # Add this field to hold metadata
