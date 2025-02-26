@@ -43,6 +43,17 @@ export type Message = {
   message: string
 }
 
+export type UploadDocumentResponse = {
+  message: string
+  document_id: string
+  chunk_count: number
+}
+
+export type DeleteDocumentResponse = {
+  message: string
+  deleted_ids: string[]
+}
+
 export type NewPassword = {
   token: string
   new_password: string

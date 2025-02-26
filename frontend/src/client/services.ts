@@ -19,6 +19,8 @@ import type {
   ItemsPublic,
   ItemUpdate,
   DocumentCreate,
+  UploadDocumentResponse,
+  DeleteDocumentResponse,
 } from "./models"
 
 export type TDataLoginAccessToken = {
@@ -546,12 +548,12 @@ export class FileUploadService {
   /**
    * Upload Document
    * Upload a file (PDF).
-   * @returns Message Successful Response
+   * @returns UploadDocumentResponse Successful Response
    * @throws ApiError
    */
   public static uploadDocument(data: {
     formData: FormData
-  }): CancelablePromise<Message> {
+  }): CancelablePromise<UploadDocumentResponse> {
     return __request(OpenAPI, {
       method: "POST",
       url: "/api/v1/documents/upload-document/",
@@ -569,12 +571,12 @@ export class FileDeleteService {
    * Delete Document
    * Deletes all records in the Pinecone index that match the given document_id.
    * @param data The request data containing document_id
-   * @returns Message Successful Response
+   * @returns DeleteDocumentResponse Successful Response
    * @throws ApiError
    */
   public static deleteDocument(data: {
     document_id: string
-  }): CancelablePromise<{ message: string; deleted_ids: string[] }> {
+  }): CancelablePromise<DeleteDocumentResponse> {
     return __request(OpenAPI, {
       method: "DELETE",
       url: "/api/v1/documents/delete-document",

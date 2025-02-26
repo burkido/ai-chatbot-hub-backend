@@ -39,15 +39,15 @@ def chat_endpoint(
     vectorstore: PineconeVectorStore = Depends(get_vectorstore)
 ) -> ChatResponse:
     user = session.get(User, current_user.id)
-    if user.credit < 1:
-        raise HTTPException(status_code=402, detail="Insufficient credits")
-    
-    crud.decrease_user_credit(session=session, user=user, amount=1)
+    if not user.is_premium:
+        if user.credit < 1:
+            raise HTTPException(status_code=402, detail="Insufficient credits")
+        crud.decrease_user_credit(session=session, user=user, amount=1)
     
     response = chat(
         chat_request.message, 
         chat_request.namespace,
-        chat_request.title,
+        chat_request.topic,
         chat_model, 
         chat_request.history, 
         vectorstore
@@ -61,17 +61,19 @@ def chat_endpoint(
 
 def augment_prompt(
         query: str,
-        title: str,
         namespace: str,
+        topic: str,
         vectorstore: PineconeVectorStore
 ):
-    # get top 3 results from knowledge base
+    # get top results from knowledge base
     results = vectorstore.similarity_search(
         query=query,
         k=10,
-        filter = {"title": {"$eq": title}},
+        filter={"topic": {"$eq": topic}},
         namespace=namespace
     )
+
+    print(f"Results: {results}")
     # get the text from the results
     source_knowledge = "\n".join([x.page_content for x in results])
     # feed into an augmented prompt
@@ -86,7 +88,7 @@ def augment_prompt(
 def chat(
         new_message: str,
         namespace: str,
-        title: str,
+        topic: str,
         chat_model: ChatOpenAI,
         history: List[ChatMessage],
         vectorstore: PineconeVectorStore
@@ -106,7 +108,7 @@ def chat(
     langchain_messages.append(HumanMessage(content=new_message))
 
     # Augment the prompt with RAG
-    augmented_prompt = augment_prompt(new_message, title, namespace, vectorstore)
+    augmented_prompt = augment_prompt(new_message, namespace, topic, vectorstore)
     langchain_messages.append(HumanMessage(content=augmented_prompt))
 
     # Get the assistant's response
