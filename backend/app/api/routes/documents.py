@@ -1,7 +1,7 @@
 import os
 from fastapi import APIRouter, UploadFile, HTTPException, File, Form
 from app.utils import Parser
-from app.models.documents import DeleteDocumentRequest
+from app.models.documents import DeleteDocumentRequest, UploadDocumentResponse, DeleteDocumentResponse
 from pinecone import Pinecone, ServerlessSpec
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -38,13 +38,14 @@ spec = ServerlessSpec(
 
 embed = OpenAIEmbeddings(model="text-embedding-3-small")
 
-@router.post("/upload-document/")
+@router.post("/upload-document/", response_model=UploadDocumentResponse)
 async def upload_document(
     index_name: str = Form(),
     namespace: str = Form(None),
-    title: str = Form(),
+    book_title: str = Form(),
     author: str = Form(),
     source: str = Form(),
+    topic: str = Form(),
     file: UploadFile = File(...)
 ):
     try:
@@ -57,10 +58,11 @@ async def upload_document(
             shutil.copyfileobj(file.file, temp_file)
 
         # Parse the uploaded file
-        parser = Parser(file_path, title, author, source)
+        parser = Parser(file_path, book_title, author, source)
 
         # Split text into chunks
         chunks = text_splitter.split_text(parser.pdf_data['text'])
+        total_chunks = len(chunks)
 
         # Define Pinecone index name and check existence
         existing_indexes = [index_info["name"] for index_info in pc.list_indexes()]
@@ -81,32 +83,29 @@ async def upload_document(
         index = pc.Index(index_name)
         time.sleep(1)
 
-        # Metadata fields
-        texts = []
-        metadatas = []
         # Prepare and insert chunks with metadata into Pinecone
         batch_limit = 100
         texts, metadatas = [], []
         chunk_counter = 0  # Global counter for chunks
         document_id = str(uuid4())[:8]  # Create a unique document identifier
+        
+        # Create normalized title prefix
+        topic_prefix = topic.lower().replace(" ", "_")
 
         for i, text_chunk in enumerate(chunks):
             metadata = {
-                'title': title,
+                'document_id': document_id,
+                'topic': topic,
+                'book_title': book_title,
+                'authors': author,
                 'source': source,
-                'category': namespace or 'Default',
-                'document_id': document_id  # Add document_id to metadata
+                'text': text_chunk,
             }
             texts.append(text_chunk)
-            metadatas.append({
-                "chunk": chunk_counter,  # Use the global counter
-                "text": text_chunk,
-                **metadata
-            })
+            metadatas.append(metadata)
 
             if len(texts) >= batch_limit:
-                # Generate unique IDs using document_id and chunk_counter
-                ids = [f"{document_id}_chunk_{i+chunk_counter}" for i in range(len(texts))]
+                ids = [f"{topic_prefix}_{document_id}_chunk_{i+chunk_counter}" for i in range(len(texts))]
                 print("Batch IDs:", ids)
                 embeds = embed.embed_documents(texts)
                 index.upsert(vectors=list(zip(ids, embeds, metadatas)), namespace=namespace)
@@ -115,7 +114,7 @@ async def upload_document(
 
         # Insert remaining data
         if texts:
-            ids = [f"{document_id}_chunk_{i+chunk_counter}" for i in range(len(texts))]
+            ids = [f"{topic_prefix}_{document_id}_chunk_{i+chunk_counter}" for i in range(len(texts))]
             print("Final batch IDs:", ids)
             embeds = embed.embed_documents(texts)
             index.upsert(vectors=list(zip(ids, embeds, metadatas)), namespace=namespace)
@@ -124,42 +123,53 @@ async def upload_document(
         # Remove the temporary file
         os.remove(file_path)
 
-        return {"message": "Successfully parsed the PDF file and added it to the knowledge base"}
+        # Update the return response to use the new model
+        return UploadDocumentResponse(
+            message="Successfully parsed the PDF file and added it to the knowledge base",
+            document_id=document_id,
+            chunk_count=total_chunks
+        )
     except Exception as e:
         print("An error occurred:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/delete-document")
+@router.delete("/delete-document", response_model=DeleteDocumentResponse)
 async def delete_document(request: DeleteDocumentRequest):
     """
-    Deletes all records in the Pinecone index that match the given title.
+    Deletes all records in the Pinecone index that match the given document_id.
     """
     try:
-        # Validate input: Title must be provided
-        if not request.title:
+        # Validate input: document_id must be provided
+        if not request.document_id:
             raise HTTPException(
                 status_code=400,
-                detail="You must provide a 'title' for deletion."
+                detail="You must provide a 'document_id' for deletion."
             )
 
-        # Generate title-based prefix for deletion
-        title_prefix = f"{request.title.replace(' ', '_').lower()}_chunk_"
-
         # Connect to the Pinecone index
-        index = pc.Index("test-latest-index")
-        namespace = "test-latest-namespace"
+        index = pc.Index("assistant-ai")
+        namespace = "doctor-ai"
 
-        # Fetch all IDs matching the prefix
-        all_ids = []
-        for ids in index.list(prefix=title_prefix, namespace=namespace):
-            all_ids.extend(ids)
-            index.delete(ids=ids, namespace=namespace)
+        # Modified to handle title prefix
+        deleted_ids = []
+        for ids in index.list(namespace=namespace):
+            # Filter IDs that contain the document_id
+            matching_ids = [id for id in ids if request.document_id in id]
+            if matching_ids:
+                deleted_ids.extend(matching_ids)
+                index.delete(ids=matching_ids, namespace=namespace)
 
-        return {
-            "message": f"Successfully deleted all chunks for title '{request.title}'.",
-            "deleted_ids": all_ids,
-        }
+        if not deleted_ids:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No documents found with document_id '{request.document_id}'"
+            )
+
+        return DeleteDocumentResponse(
+            message=f"Successfully deleted all chunks for document_id '{request.document_id}'",
+            deleted_ids=deleted_ids
+        )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")

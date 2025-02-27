@@ -16,26 +16,33 @@ import {
   TabPanels,
   Tab,
   TabPanel,
+  Text,
+  Box,
 } from '@chakra-ui/react';
 import { useMutation } from '@tanstack/react-query';
 import { FileUploadService, FileDeleteService } from "../../client"
+import { UploadDocumentResponse, DeleteDocumentResponse } from "../../client/models"
 
 export const Route = createFileRoute('/_layout/upload-document')({
   component: UploadPDF,
 });
 
 function UploadPDF() {
-  const [namespace, setNamespace] = useState('');
-  const [indexName, setIndexName] = useState('quickstart-index');
+  const [namespace, setNamespace] = useState('doctor-ai');
+  const [indexName, setIndexName] = useState('assistant-ai');
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [title, setTitle] = useState('');
+  const [bookTitle, setBookTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [source, setSource] = useState('');
+  const [topic, setTopic] = useState('');
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState(false);
+  const [documentId, setDocumentId] = useState('');
+  const [uploadedDocumentId, setUploadedDocumentId] = useState('');
+  const [chunkCount, setChunkCount] = useState(0);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -61,14 +68,16 @@ function UploadPDF() {
     }
   };
 
-  const mutation = useMutation({
+  const mutation = useMutation<UploadDocumentResponse, Error, FormData>({
     mutationFn: async (formData: FormData) => {
       return FileUploadService.uploadDocument({ formData });
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
       setUploadSuccess(true);
       setUploadError(false);
       setIsLoading(false);
+      setUploadedDocumentId(response.document_id);
+      setChunkCount(response.chunk_count);
     },
     onError: () => {
       setUploadSuccess(false);
@@ -78,7 +87,7 @@ function UploadPDF() {
   });
 
   const handleUpload = async () => {
-    if (!indexName || !title || !author || !source) {
+    if (!indexName || !bookTitle || !author || !source || !topic) {
       toast({
         title: 'Please fill all required fields',
         status: 'error',
@@ -108,29 +117,32 @@ function UploadPDF() {
     formData.append('file', file as Blob);
     formData.append('index_name', indexName.toLowerCase().replace(/\s+/g, '-'));
     formData.append('namespace', namespace);
-    formData.append('title', title);
+    formData.append('book_title', bookTitle);
     formData.append('author', author);
     formData.append('source', source);
+    formData.append('topic', topic);
 
     mutation.mutate(formData);
   };
 
-  const deleteMutation = useMutation({
-    mutationFn: async (data: { title?: string; source?: string }) => {
+  const deleteMutation = useMutation<DeleteDocumentResponse, Error, { document_id: string }>({
+    mutationFn: async (data: { document_id: string }) => {
       return FileDeleteService.deleteDocument(data);
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
       toast({
-        title: 'File deleted successfully',
+        title: 'Document deleted successfully',
+        description: `Deleted ${response.deleted_ids.length} chunks`,
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
       setIsLoading(false);
+      setDocumentId('');
     },
     onError: (error: any) => {
       toast({
-        title: 'File deletion failed',
+        title: 'Document deletion failed',
         description: error.message,
         status: 'error',
         duration: 3000,
@@ -141,10 +153,10 @@ function UploadPDF() {
   });
 
   const confirmDelete = async () => {
-    if (!title && !source) {
+    if (!documentId) {
       toast({
         title: "Error",
-        description: "You must provide either a 'title' or a 'source' for deletion.",
+        description: "You must provide a document ID for deletion.",
         status: "error",
         duration: 2000,
         isClosable: true,
@@ -152,7 +164,8 @@ function UploadPDF() {
       return;
     }
 
-    deleteMutation.mutate({ title, source });
+    setIsLoading(true);
+    deleteMutation.mutate({ document_id: documentId });
   };
 
   return (
@@ -164,16 +177,6 @@ function UploadPDF() {
         </TabList>
         <TabPanels>
           <TabPanel>
-            <FormControl isRequired>
-              <FormLabel htmlFor="namespace">Namespace</FormLabel>
-              <Input
-                id="namespace"
-                value={namespace}
-                onChange={(e) => setNamespace(e.target.value)}
-                placeholder="Namespace"
-                type="text"
-              />
-            </FormControl>
             <FormControl mt={4} isRequired>
               <FormLabel htmlFor="indexName">Index Name</FormLabel>
               <Input
@@ -185,12 +188,22 @@ function UploadPDF() {
               />
             </FormControl>
             <FormControl mt={4} isRequired>
-              <FormLabel htmlFor="title">Title</FormLabel>
+              <FormLabel htmlFor="namespace">Namespace</FormLabel>
               <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Title"
+                id="namespace"
+                value={namespace}
+                onChange={(e) => setNamespace(e.target.value)}
+                placeholder="Namespace"
+                type="text"
+              />
+            </FormControl>
+            <FormControl mt={4} isRequired>
+              <FormLabel htmlFor="bookTitle">Book Title</FormLabel>
+              <Input
+                id="bookTitle"
+                value={bookTitle}
+                onChange={(e) => setBookTitle(e.target.value)}
+                placeholder="Book Title"
                 type="text"
               />
             </FormControl>
@@ -215,6 +228,16 @@ function UploadPDF() {
               />
             </FormControl>
             <FormControl mt={4} isRequired>
+              <FormLabel htmlFor="topic">Topic</FormLabel>
+              <Input
+                id="topic"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="Topic"
+                type="text"
+              />
+            </FormControl>
+            <FormControl mt={4} isRequired>
               <FormLabel htmlFor="file">File</FormLabel>
               <Input
                 id="file"
@@ -227,7 +250,16 @@ function UploadPDF() {
               <Alert status="success" mt={4}>
                 <AlertIcon />
                 <AlertTitle>Success!</AlertTitle>
-                <AlertDescription>File uploaded successfully.</AlertDescription>
+                <AlertDescription>
+                  File uploaded successfully.
+                  {uploadedDocumentId && (
+                    <Box mt={2}>
+                      <Text fontWeight="bold">Document ID: {uploadedDocumentId}</Text>
+                      <Text>Chunks uploaded to Pinecone: {chunkCount}</Text>
+                      <Text fontSize="sm">Save this ID if you may need to delete this document later</Text>
+                    </Box>
+                  )}
+                </AlertDescription>
               </Alert>
             )}
             {uploadError && (
@@ -243,26 +275,21 @@ function UploadPDF() {
           </TabPanel>
           <TabPanel>
             <FormControl>
-              <FormLabel htmlFor="title">Title</FormLabel>
+              <FormLabel htmlFor="documentId">Document ID</FormLabel>
               <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Title"
+                id="documentId"
+                value={documentId}
+                onChange={(e) => setDocumentId(e.target.value)}
+                placeholder="Document ID"
                 type="text"
               />
             </FormControl>
-            <FormControl mt={4}>
-              <FormLabel htmlFor="source">Source</FormLabel>
-              <Input
-                id="source"
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                placeholder="Source"
-                type="text"
-              />
-            </FormControl>
-            <Button variant="danger" mt={4} onClick={confirmDelete} isLoading={isLoading}>
+            <Button 
+              colorScheme="red" 
+              mt={4} 
+              onClick={confirmDelete} 
+              isLoading={isLoading}
+            >
               Delete
             </Button>
           </TabPanel>

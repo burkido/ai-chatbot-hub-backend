@@ -43,6 +43,17 @@ export type Message = {
   message: string
 }
 
+export type UploadDocumentResponse = {
+  message: string
+  document_id: string
+  chunk_count: number
+}
+
+export type DeleteDocumentResponse = {
+  message: string
+  deleted_ids: string[]
+}
+
 export type NewPassword = {
   token: string
   new_password: string
@@ -72,6 +83,8 @@ export type UserPublic = {
   is_superuser?: boolean
   full_name?: string | null
   id: string
+  credit: number
+  is_premium: boolean
 }
 
 export type UserRegister = {
@@ -86,6 +99,8 @@ export type UserUpdate = {
   is_superuser?: boolean
   full_name?: string | null
   password?: string | null
+  credit?: number
+  is_premium?: boolean
 }
 
 export type UserUpdateMe = {
