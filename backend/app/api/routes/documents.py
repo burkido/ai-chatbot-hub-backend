@@ -106,7 +106,6 @@ async def upload_document(
 
             if len(texts) >= batch_limit:
                 ids = [f"{topic_prefix}_{document_id}_chunk_{i+chunk_counter}" for i in range(len(texts))]
-                print("Batch IDs:", ids)
                 embeds = embed.embed_documents(texts)
                 index.upsert(vectors=list(zip(ids, embeds, metadatas)), namespace=namespace)
                 chunk_counter += len(texts)  # Increment the counter by batch size
@@ -115,7 +114,6 @@ async def upload_document(
         # Insert remaining data
         if texts:
             ids = [f"{topic_prefix}_{document_id}_chunk_{i+chunk_counter}" for i in range(len(texts))]
-            print("Final batch IDs:", ids)
             embeds = embed.embed_documents(texts)
             index.upsert(vectors=list(zip(ids, embeds, metadatas)), namespace=namespace)
 
@@ -130,7 +128,6 @@ async def upload_document(
             chunk_count=total_chunks
         )
     except Exception as e:
-        print("An error occurred:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -94,7 +94,6 @@ def refresh_access_token(
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-    print("User email from refresh token:", user_id)
     user = crud.get_user_by_id(session=session, user_id=user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

@@ -73,8 +73,6 @@ def augment_prompt(
         namespace=namespace
     )
 
-    print(f"Results: {results}")
-    
     # Extract sources information - excluding page_content
     sources = []
     for doc in results:
