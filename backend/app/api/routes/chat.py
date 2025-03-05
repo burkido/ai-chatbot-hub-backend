@@ -18,6 +18,7 @@ router = APIRouter()
 
 # it can adapt for managing multiple indexes
 index_name = "assistant-ai"
+#index_name = "canopy--ilmihal"
 
 # Dependency for ChatOpenAI instance
 def get_chat_openai() -> ChatOpenAI:
@@ -28,7 +29,7 @@ def get_chat_openai() -> ChatOpenAI:
     )
 
 def get_vectorstore() -> PineconeVectorStore:
-    return PineconeVectorStore(index_name=index_name, embedding=OpenAIEmbeddings())
+    return PineconeVectorStore(index_name=index_name, embedding=OpenAIEmbeddings(model="text-embedding-3-small"))
 
 @router.post("/", response_model=ChatResponse)
 def chat_endpoint(
@@ -63,37 +64,52 @@ def augment_prompt(
         query: str,
         namespace: str,
         topic: str,
-        vectorstore: PineconeVectorStore
+        vectorstore: PineconeVectorStore,
+        similarity_threshold: float = 0.51  # Configurable threshold
 ):
     # get top results from knowledge base
-    results = vectorstore.similarity_search(
+    results = vectorstore.similarity_search_with_score(
         query=query,
-        k=10,
-        filter={"topic": {"$eq": topic}},
+        k=1,
+        filter={"topic": {"$eq": topic}} if topic else None,
         namespace=namespace
     )
 
-    # Extract sources information - excluding page_content
+    print(f"Results: {results}")
+    
+    # Extract sources information - only from documents with sufficient score
     sources = []
-    for doc in results:
-        if hasattr(doc, 'metadata'):
+    filtered_results = []
+    
+    for doc, score in results:
+        print(f"Score for result: {score}")
+        if score >= similarity_threshold:
             source_info = {
                 "authors": doc.metadata.get("authors", "Unknown"),
                 "book_title": doc.metadata.get("book_title", "Untitled"),
                 "source": doc.metadata.get("source", ""),
+                "score": score
             }
             sources.append(source_info)
+            filtered_results.append((doc, score))
     
-    # get the text from the results (still need this for the AI to generate a response)
-    source_knowledge = "\n".join([x.page_content for x in results])
+    # Join page_content only from documents that passed the threshold
+    if filtered_results:
+        source_knowledge = "\n".join([doc.page_content for doc, _ in filtered_results])
+        
+        augmented_prompt = f"""You are an AI assistant with access to specific context from a book. When a user asks a question, use the provided context to generate accurate and helpful answers. If the context does not contain the information needed, let the user know or guide them with related information from the book. Maintain a friendly and conversational tone while ensuring your responses are clear and relevant."
+
+        Contexts:
+        {source_knowledge}
+
+        Query: {query}"""
+    else:
+        # No results passed the threshold
+        source_knowledge = ""
+        augmented_prompt = f"""You are an AI assistant. The user has asked: "{query}" 
+        
+        I don't have specific information on this topic in my knowledge base. Please respond to the best of your ability using general knowledge, but make it clear you don't have specific reference materials on this topic."""
     
-    # feed into an augmented prompt
-    augmented_prompt = f"""Using the contexts below, answer the query. Answer according to prompted langugage. If you don't know the answer, you can say "I don't know. If you want to notify the problem, please send us a message by clicking the menu item ontop right of the screen."
-
-    Contexts:
-    {source_knowledge}
-
-    Query: {query}"""
     return augmented_prompt, sources
 
 def chat(
