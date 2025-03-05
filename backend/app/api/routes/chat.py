@@ -97,18 +97,17 @@ def augment_prompt(
     if filtered_results:
         source_knowledge = "\n".join([doc.page_content for doc, _ in filtered_results])
         
-        augmented_prompt = f"""You are an AI assistant with access to specific context from a book. When a user asks a question, use the provided context to generate accurate and helpful answers. If the context does not contain the information needed, let the user know or guide them with related information from the book. Maintain a friendly and conversational tone while ensuring your responses are clear and relevant."
+        augmented_prompt = f"""You are a kind and polite AI assistant with access to specific context from a book. When a user asks a question, use the provided context to generate accurate, helpful, and courteous answers. Always maintain a friendly, respectful tone in your responses.
 
         Contexts:
         {source_knowledge}
 
         Query: {query}"""
     else:
-        # No results passed the threshold
-        source_knowledge = ""
-        augmented_prompt = f"""You are an AI assistant. The user has asked: "{query}" 
-        
-        I don't have specific information on this topic in my knowledge base. Please respond to the best of your ability using general knowledge, but make it clear you don't have specific reference materials on this topic."""
+        # No results passed the threshold - use own knowledge but be transparent
+        augmented_prompt = f"""You are a kind and polite AI assistant. The user has asked: "{query}" 
+
+        I don't have specific information on this topic in my knowledge base. Please respond to the best of your ability using your own knowledge. Be honest that you're not using reference materials but still provide a helpful, friendly, and respectful response. Always maintain a supportive and courteous tone."""
     
     return augmented_prompt, sources
 
@@ -121,13 +120,19 @@ def chat(
         vectorstore: PineconeVectorStore
 ) -> tuple[str, List[Dict[str, Any]]]:
     langchain_messages = []
+    
+    # Always insert a system message at the beginning
+    langchain_messages.append(SystemMessage(content="You are a helpful, kind, and polite assistant. Always respond with courtesy and respect."))
+    
+    # Process history messages
     for msg in history:
-        if msg.role == "system":
-            langchain_messages.append(SystemMessage(content=msg.content))
-        elif msg.role == "user":
+        if msg.role == "user":
             langchain_messages.append(HumanMessage(content=msg.content))
         elif msg.role == "assistant":
             langchain_messages.append(AIMessage(content=msg.content))
+        elif msg.role == "system":
+            # If there are system messages in history, we'll include them too
+            langchain_messages.append(SystemMessage(content=msg.content))
         else:
             raise ValueError(f"Unknown role: {msg.role}")
     
