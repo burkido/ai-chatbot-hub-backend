@@ -11,6 +11,7 @@ import time
 from uuid import uuid4
 from tqdm.auto import tqdm
 from fastapi import HTTPException
+import re
 
 router = APIRouter()
 
@@ -27,7 +28,7 @@ pc = Pinecone()
 
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=500,
-    chunk_overlap=100,
+    chunk_overlap=50,
     length_function=tiktoken_len,
     separators=["\n\n", "\n", " ", ""]
 )
@@ -36,7 +37,36 @@ spec = ServerlessSpec(
     cloud="aws", region="us-east-1"
 )
 
-embed = OpenAIEmbeddings(model="text-embedding-3-small")
+embed = OpenAIEmbeddings(model="text-embedding-3-small")  # This outputs 1536 dimensions
+
+def clean_text(text):
+    """
+    Clean and normalize text to handle special characters properly and 
+    improve readability by removing unwanted line breaks.
+    """
+    if not text:
+        return ""
+    
+    # Replace escaped newlines with spaces
+    text = text.replace('\\n', ' ')
+    text = text.replace('\\t', ' ')
+    text = text.replace('\\r', ' ')
+    
+    # Smart newline handling - keep paragraph breaks but not mid-sentence breaks
+    # Replace newlines that break sentences (not after periods, question marks, exclamation points)
+    text = re.sub(r'([^.!?])\n([^\n])', r'\1 \2', text)
+    
+    # Keep paragraph breaks (double newlines)
+    text = re.sub(r'\n{2,}', ' \n\n ', text)
+    
+    # Optional: completely remove all newlines for a totally continuous text
+    # Uncomment the following line if you want NO newlines at all
+    # text = text.replace('\n', ' ')
+    
+    # Replace multiple spaces with a single space
+    text = re.sub(r' +', ' ', text)
+    
+    return text.strip()
 
 @router.post("/upload-document/", response_model=UploadDocumentResponse)
 async def upload_document(
@@ -60,18 +90,32 @@ async def upload_document(
         # Parse the uploaded file
         parser = Parser(file_path, book_title, author, source)
 
-        # Split text into chunks
-        chunks = text_splitter.split_text(parser.pdf_data['text'])
+        # Apply aggressive cleaning to completely remove all newlines if you prefer
+        # This will make text fully continuous with no line breaks
+        completely_cleaned_text = parser.pdf_data['text'].replace('\n', ' ')
+        completely_cleaned_text = re.sub(r' +', ' ', completely_cleaned_text)
+        
+        # Use either the standard cleaned text or the completely cleaned version
+        # depending on your preference:
+        
+        # Option 1: Use parser's cleaned text (keeps paragraph breaks)
+        # cleaned_text = clean_text(parser.pdf_data['text'])
+        
+        # Option 2: Use completely cleaned text (no line breaks at all)
+        cleaned_text = completely_cleaned_text
+        
+        # Split text into chunks using cleaned text
+        chunks = text_splitter.split_text(cleaned_text)
         total_chunks = len(chunks)
 
         # Define Pinecone index name and check existence
         existing_indexes = [index_info["name"] for index_info in pc.list_indexes()]
 
         if index_name not in existing_indexes:
-            # Create index if it doesn't exist
+            # Create index with the correct dimension matching your embedding model
             pc.create_index(
                 index_name,
-                dimension=1536,
+                dimension=1536,  # Use 1536 for text-embedding-ada-002 or 3072 for text-embedding-3-large  # Updated to match text-embedding-3-large
                 metric='dotproduct',
                 spec=spec
             )
@@ -93,15 +137,18 @@ async def upload_document(
         topic_prefix = topic.lower().replace(" ", "_")
 
         for i, text_chunk in enumerate(chunks):
+            # Clean each chunk to ensure proper character handling
+            clean_chunk = clean_text(text_chunk)
+            
             metadata = {
                 'document_id': document_id,
                 'topic': topic,
                 'book_title': book_title,
                 'authors': author,
                 'source': source,
-                'text': text_chunk,
+                'text': clean_chunk,
             }
-            texts.append(text_chunk)
+            texts.append(clean_chunk)
             metadatas.append(metadata)
 
             if len(texts) >= batch_limit:
@@ -128,6 +175,7 @@ async def upload_document(
             chunk_count=total_chunks
         )
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -146,7 +194,7 @@ async def delete_document(request: DeleteDocumentRequest):
 
         # Connect to the Pinecone index
         index = pc.Index("assistant-ai")
-        namespace = "doctor-ai"
+        namespace = "doctor-ai-test"
 
         # Modified to handle title prefix
         deleted_ids = []
@@ -170,4 +218,3 @@ async def delete_document(request: DeleteDocumentRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-
