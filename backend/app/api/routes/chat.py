@@ -70,7 +70,7 @@ def augment_prompt(
     # get top results from knowledge base
     results = vectorstore.similarity_search_with_score(
         query=query,
-        k=1,
+        k=3,
         filter={"topic": {"$eq": topic}} if topic else None,
         namespace=namespace
     )
