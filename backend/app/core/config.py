@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     EMAILS_FROM_EMAIL: str | None = None
     EMAILS_FROM_NAME: str | None = None
 
+    # Email API configuration (Mailgun)
+    MAILGUN_API_KEY: str = ""
+    MAILGUN_DOMAIN: str = "mail.assistlyai.space"
+
     @model_validator(mode="after")
     def _set_default_emails_from(self) -> Self:
         if not self.EMAILS_FROM_NAME:
@@ -88,7 +92,7 @@ class Settings(BaseSettings):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def emails_enabled(self) -> bool:
-        return bool(self.SMTP_HOST and self.EMAILS_FROM_EMAIL)
+        return bool(self.MAILGUN_API_KEY and self.MAILGUN_DOMAIN)
 
     # TODO: update type to EmailStr when sqlmodel supports it
     EMAIL_TEST_USER: str = "test@example.com"

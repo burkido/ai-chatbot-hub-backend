@@ -25,38 +25,50 @@ def render_email_template(*, template_name: str, context: dict[str, Any]) -> str
     html_content = Template(template_str).render(context)
     return html_content
 
-
 def send_email(
     *,
     email_to: str,
     subject: str = "",
     html_content: str = "",
 ) -> None:
+    """Send email using Mailgun API."""
     assert settings.emails_enabled, "no provided configuration for email variables"
-    message = emails.Message(
-        subject=subject,
-        html=html_content,
-        mail_from=(settings.EMAILS_FROM_NAME, settings.EMAILS_FROM_EMAIL),
+    
+    import requests
+    
+    # Get API key from environment variable
+    api_key = settings.MAILGUN_API_KEY
+    
+    # Mailgun domain and API endpoint
+    domain = settings.MAILGUN_DOMAIN
+    api_url = f"https://api.eu.mailgun.net/v3/{domain}/messages"
+    
+    # Prepare email data with postmaster as sender
+    data = {
+        "from": f"{settings.PROJECT_NAME} <postmaster@{domain}>",
+        "to": email_to,
+        "subject": subject,
+    }
+    
+    # Include either HTML or text content
+    if html_content:
+        data["html"] = html_content
+    else:
+        data["text"] = "Email content not provided"
+    
+    # Send request to Mailgun API
+    response = requests.post(
+        api_url,
+        auth=("api", api_key),
+        data=data
     )
-    smtp_options = {"host": settings.SMTP_HOST, "port": settings.SMTP_PORT}
-    print("SMTP Username is: ", settings.SMTP_USER, "SMTP Password is: ", settings.SMTP_PASSWORD)
-    if settings.SMTP_TLS:
-        print("SMTP TLS is enabled")
-        smtp_options["tls"] = True
-    elif settings.SMTP_SSL:
-        print("SMTP SSL is enabled")
-        smtp_options["ssl"] = True
-    if settings.SMTP_USER:
-        print("SMTP User is enabled")
-        smtp_options["user"] = settings.SMTP_USER
-    if settings.SMTP_PASSWORD:
-        print("SMTP Password is enabled")
-        smtp_options["password"] = settings.SMTP_PASSWORD
-    print("Email to is: ", email_to, "with ", smtp_options)
-    response = message.send(to=email_to, smtp=smtp_options)
-    print("Email response is: ", response)
-    logging.info(f"send email result: {response}")
-
+    
+    # Log the response
+    print(f"Mailgun API response: {response.status_code} - {response.text}")
+    logging.info(f"send email result: {response.status_code} - {response.text}")
+    
+    # Raise an exception if the request failed
+    response.raise_for_status()
 
 def generate_test_email(email_to: str) -> EmailData:
     project_name = settings.PROJECT_NAME
