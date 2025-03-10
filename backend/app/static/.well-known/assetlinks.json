@@ -1,0 +1,14 @@
+[
+    {
+        "relation": [
+            "delegate_permission/common.handle_all_urls"
+        ],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "com.burkido.medicineai",
+            "sha256_cert_fingerprints": [
+                "7E:DA:FE:A4:35:1A:11:54:27:00:EF:AD:B7:D2:F8:BD:0C:96:6C:21:1E:F0:19:B7:81:AC:62:40:13:BC:6F:E3"
+            ]
+        }
+    }
+]
