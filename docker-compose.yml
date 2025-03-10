@@ -54,25 +54,13 @@ services:
 
       - traefik.http.services.${STACK_NAME?Variable not set}-backend.loadbalancer.server.port=80
 
-      # API routes - modified to separate docs and redoc from api path
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=Host(`api.${DOMAIN?Variable not set}`) && (PathPrefix(`/api`) || Path(`/docs`) || Path(`/redoc`) || Path(`/openapi.json`))
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`))
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.entrypoints=http
 
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=Host(`api.${DOMAIN?Variable not set}`) && (PathPrefix(`/api`) || Path(`/docs`) || Path(`/redoc`) || Path(`/openapi.json`))
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`))
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.entrypoints=https
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls.certresolver=le
-
-      # Dedicated routers for .well-known path on root domain only
-      - traefik.http.routers.${STACK_NAME?Variable not set}-well-known-http.rule=Host(`${DOMAIN?Variable not set}`) && PathPrefix(`/.well-known`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-well-known-http.entrypoints=http
-      - traefik.http.routers.${STACK_NAME?Variable not set}-well-known-http.service=${STACK_NAME?Variable not set}-backend
-      
-      - traefik.http.routers.${STACK_NAME?Variable not set}-well-known-https.rule=Host(`${DOMAIN?Variable not set}`) && PathPrefix(`/.well-known`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-well-known-https.entrypoints=https
-      - traefik.http.routers.${STACK_NAME?Variable not set}-well-known-https.tls=true
-      - traefik.http.routers.${STACK_NAME?Variable not set}-well-known-https.tls.certresolver=le
-      - traefik.http.routers.${STACK_NAME?Variable not set}-well-known-https.service=${STACK_NAME?Variable not set}-backend
 
       # Define Traefik Middleware to handle domain with and without "www" to redirect to only one
       - traefik.http.middlewares.${STACK_NAME?Variable not set}-www-redirect.redirectregex.regex=^http(s)?://www.(${DOMAIN?Variable not set})/(.*)
@@ -80,10 +68,8 @@ services:
       - traefik.http.middlewares.${STACK_NAME?Variable not set}-www-redirect.redirectregex.replacement=http$${1}://${DOMAIN?Variable not set}/$${3}
 
       # Enable www redirection for HTTP and HTTPS
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=https-redirect
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=https-redirect,${STACK_NAME?Variable not set}-www-redirect
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.middlewares=${STACK_NAME?Variable not set}-www-redirect
-      - traefik.http.routers.${STACK_NAME?Variable not set}-well-known-http.middlewares=https-redirect
-      - traefik.http.routers.${STACK_NAME?Variable not set}-well-known-https.middlewares=${STACK_NAME?Variable not set}-www-redirect
 
 volumes:
   app-db-data:
