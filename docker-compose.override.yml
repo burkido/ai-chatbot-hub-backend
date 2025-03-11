@@ -58,6 +58,14 @@ services:
     # command: sleep infinity  # Infinite loop to keep container alive doing nothing
     command: /start-reload.sh
 
+  # Add assetlinks service for local testing
+  assetlinks:
+    restart: "no"
+    ports:
+      - "8091:80"
+    volumes:
+      - ./well-known:/usr/share/nginx/html/.well-known
+
 networks:
   traefik-public:
     # For local dev, don't expect an external Traefik network

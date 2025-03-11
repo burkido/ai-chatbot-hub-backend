@@ -87,16 +87,16 @@ services:
       
       - traefik.http.services.${STACK_NAME?Variable not set}-assetlinks.loadbalancer.server.port=80
       
-      - traefik.http.routers.${STACK_NAME?Variable not set}-assetlinks-http.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && PathPrefix(`/.well-known/assetlinks.json`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-assetlinks-http.rule=Host(`assistlyai.space`) && PathPrefix(`/.well-known/assetlinks.json`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-assetlinks-http.entrypoints=http
       
-      - traefik.http.routers.${STACK_NAME?Variable not set}-assetlinks-https.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && PathPrefix(`/.well-known/assetlinks.json`) 
+      - traefik.http.routers.${STACK_NAME?Variable not set}-assetlinks-https.rule=Host(`assistlyai.space`) && PathPrefix(`/.well-known/assetlinks.json`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-assetlinks-https.entrypoints=https
       - traefik.http.routers.${STACK_NAME?Variable not set}-assetlinks-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-assetlinks-https.tls.certresolver=le
       
-      - traefik.http.routers.${STACK_NAME?Variable not set}-assetlinks-http.middlewares=https-redirect,${STACK_NAME?Variable not set}-www-redirect
-      - traefik.http.routers.${STACK_NAME?Variable not set}-assetlinks-https.middlewares=${STACK_NAME?Variable not set}-www-redirect
+      - traefik.http.routers.${STACK_NAME?Variable not set}-assetlinks-http.middlewares=https-redirect
+      - traefik.http.routers.${STACK_NAME?Variable not set}-assetlinks-https.middlewares=
 
 volumes:
   app-db-data:
