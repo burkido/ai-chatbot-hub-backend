@@ -106,8 +106,8 @@
                   <tr>
                     <td align="center" style="font-size:0px;padding:35px;word-break:break-word;">
                       <div
-                        style="font-family:Ubuntu, Helvetica, Arial, sans-serif;font-size:20px;line-height:1;text-align:center;color:#333333;">
-                        {{ project_name }} - New Account</div>
+                        style="font-family:Arial, Helvetica, sans-serif;font-size:20px;line-height:1;text-align:center;color:#333333;">
+                        {{ project_name }} - Account Verification</div>
                     </td>
                   </tr>
                   <tr>
@@ -115,7 +115,7 @@
                       style="font-size:0px;padding:10px 25px;padding-right:25px;padding-left:25px;word-break:break-word;">
                       <div
                         style="font-family:Arial, Helvetica, sans-serif;font-size:16px;line-height:1;text-align:center;color:#555555;">
-                        <span>Welcome to your new account!</span></div>
+                        <span>Hello {{ username }}</span></div>
                     </td>
                   </tr>
                   <tr>
@@ -123,7 +123,16 @@
                       style="font-size:0px;padding:10px 25px;padding-right:25px;padding-left:25px;word-break:break-word;">
                       <div
                         style="font-family:Arial, Helvetica, sans-serif;font-size:16px;line-height:1;text-align:center;color:#555555;">
-                        Here are your account details:</div>
+                        Thank you for registering with {{ project_name }}. Please verify your account using the code
+                        below:</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center"
+                      style="font-size:0px;padding:20px;padding-right:25px;padding-left:25px;word-break:break-word;">
+                      <div
+                        style="font-family:Arial, Helvetica, sans-serif;font-size:32px;font-weight:bold;line-height:1;text-align:center;color:#009688;">
+                        {{ verification_code }}</div>
                     </td>
                   </tr>
                   <tr>
@@ -131,15 +140,7 @@
                       style="font-size:0px;padding:10px 25px;padding-right:25px;padding-left:25px;word-break:break-word;">
                       <div
                         style="font-family:Arial, Helvetica, sans-serif;font-size:16px;line-height:1;text-align:center;color:#555555;">
-                        Username: {{ username }}</div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td align="center"
-                      style="font-size:0px;padding:10px 25px;padding-right:25px;padding-left:25px;word-break:break-word;">
-                      <div
-                        style="font-family:Arial, Helvetica, sans-serif;font-size:16px;line-height:1;text-align:center;color:#555555;">
-                        Password: {{ password }}</div>
+                        Alternatively, you can click the button below to verify your account:</div>
                     </td>
                   </tr>
                   <tr>
@@ -150,17 +151,49 @@
                         <tr>
                           <td align="center" bgcolor="#009688" role="presentation"
                             style="border:none;border-radius:8px;cursor:auto;padding:10px 25px;background:#009688;"
-                            valign="middle"><a href="{{ link }}"
+                            valign="middle"><a href="{{ deeplink }}"
                               style="background:#009688;color:#ffffff;font-family:Ubuntu, Helvetica, Arial, sans-serif;font-size:18px;font-weight:normal;line-height:120%;Margin:0;text-decoration:none;text-transform:none;"
-                              target="_blank">Go to Dashboard</a></td>
+                              target="_blank">Verify Account</a></td>
                         </tr>
                       </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center"
+                      style="font-size:0px;padding:10px 25px;padding-right:25px;padding-left:25px;word-break:break-word;">
+                      <div
+                        style="font-family:Arial, Helvetica, sans-serif;font-size:16px;line-height:1;text-align:center;color:#555555;">
+                        Or copy and paste the following link into your browser:</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center"
+                      style="font-size:0px;padding:10px 25px;padding-right:25px;padding-left:25px;word-break:break-word;">
+                      <div
+                        style="font-family:Arial, Helvetica, sans-serif;font-size:16px;line-height:1;text-align:center;color:#555555;">
+                        <a href="{{ deeplink }}">{{ deeplink }}</a></div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center"
+                      style="font-size:0px;padding:10px 25px;padding-right:25px;padding-left:25px;word-break:break-word;">
+                      <div
+                        style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1;text-align:center;color:#555555;">
+                        This verification code will expire in 24 hours.</div>
                     </td>
                   </tr>
                   <tr>
                     <td style="font-size:0px;padding:10px 25px;word-break:break-word;">
                       <p style="border-top:solid 2px #cccccc;font-size:1;margin:0px auto;width:100%;"></p><!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" style="border-top:solid 2px #cccccc;font-size:1;margin:0px auto;width:510px;" role="presentation" width="510px" ><tr><td style="height:0;line-height:0;"> &nbsp;
 </td></tr></table><![endif]-->
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center"
+                      style="font-size:0px;padding:10px 25px;padding-right:25px;padding-left:25px;word-break:break-word;">
+                      <div
+                        style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1;text-align:center;color:#555555;">
+                        If you did not create an account with {{ project_name }}, please disregard this email.</div>
                     </td>
                   </tr>
                 </table>

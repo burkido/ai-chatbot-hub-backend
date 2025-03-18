@@ -15,8 +15,8 @@ from app.core.security import get_password_hash, verify_password
 from app.models.item import Item
 from app.models.user import User, UserCreate, UserPublic, UserRegister, UserUpdate, UserUpdateMe, UsersPublic, UpdatePassword
 from app.models.token import Message
-
-from app.utils import generate_new_account_email, send_email
+from app.models.otp import OTP
+from app.utils import generate_new_account_email, generate_email_verification_otp, send_email
 
 router = APIRouter()
 
@@ -57,7 +57,10 @@ def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
     user = crud.create_user(session=session, user_create=user_in)
     if settings.emails_enabled and user_in.email:
         email_data = generate_new_account_email(
-            email_to=user_in.email, username=user_in.email, password=user_in.password
+            email_to=user_in.email, 
+            username=user_in.email, 
+            password=user_in.password, 
+            deeplink=f"https://assistlyai.space/doctor/login"
         )
         send_email(
             email_to=user_in.email,
@@ -146,6 +149,24 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
         )
     user_create = UserCreate.model_validate(user_in)
     user = crud.create_user(session=session, user_create=user_create)
+    
+    # Create and send OTP for email verification
+    otp = OTP.generate(email=user_in.email)
+    session.add(otp)
+    session.commit()
+    
+    # Send verification email
+    email_data = generate_email_verification_otp(
+        email_to=user_in.email, 
+        otp=otp.code,
+        deeplink=f"https://assistlyai.space/doctor/verify?otp={otp.code}"
+    )
+    send_email(
+        email_to=user_in.email,
+        subject=email_data.subject,
+        html_content=email_data.html_content,
+    )
+    
     return user
 
 
