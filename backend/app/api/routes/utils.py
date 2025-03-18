@@ -18,7 +18,7 @@ def test_email(email_to: EmailStr) -> Message:
     """
     Test emails.
     """
-    email_data = generate_test_email(email_to=email_to)
+    email_data = generate_test_email(email_to=email_to, deeplink=f"https://example.com/test")
     send_email(
         email_to=email_to,
         subject=email_data.subject,

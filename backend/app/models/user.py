@@ -14,6 +14,7 @@ class UserBase(SQLModel):
     credit: int = Field(default=7, ge=0)
     google_id: str | None = Field(default=None, index=True)
     is_premium: bool = False
+    is_verified: bool = False  # Fixed typo from "is_verifided" to "is_verified"
 
 class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=40)
