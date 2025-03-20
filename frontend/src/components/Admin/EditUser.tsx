@@ -36,6 +36,7 @@ interface UserUpdateForm extends UserUpdate {
   confirm_password: string
   credit: number
   is_premium: boolean
+  is_verified: boolean
 }
 
 const EditUser = ({ user, isOpen, onClose }: EditUserProps) => {
@@ -64,6 +65,7 @@ const EditUser = ({ user, isOpen, onClose }: EditUserProps) => {
       setValue("is_superuser", user.is_superuser)
       setValue("credit", user.credit)
       setValue("is_premium", user.is_premium)
+      setValue("is_verified", user.is_verified)
     }
   }, [user, setValue])
 
@@ -181,6 +183,11 @@ const EditUser = ({ user, isOpen, onClose }: EditUserProps) => {
               <FormControl>
                 <Checkbox {...register("is_premium")} colorScheme="teal">
                   Is premium?
+                </Checkbox>
+              </FormControl>
+              <FormControl>
+                <Checkbox {...register("is_verified")} colorScheme="teal">
+                  Is verified?
                 </Checkbox>
               </FormControl>
             </Stack>

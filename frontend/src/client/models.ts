@@ -85,6 +85,7 @@ export type UserPublic = {
   id: string
   credit: number
   is_premium: boolean
+  is_verified: boolean
 }
 
 export type UserRegister = {
@@ -101,6 +102,7 @@ export type UserUpdate = {
   password?: string | null
   credit?: number
   is_premium?: boolean
+  is_verified?: boolean
 }
 
 export type UserUpdateMe = {
