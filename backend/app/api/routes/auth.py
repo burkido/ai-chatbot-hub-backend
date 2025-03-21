@@ -198,7 +198,7 @@ def register(
     user = crud.get_user_by_email(session=session, email=user_create.email)
     if user:
         raise HTTPException(
-            status_code=400,
+            status_code=409,
             detail="The user with this email already exists in the system.",
         )
     
