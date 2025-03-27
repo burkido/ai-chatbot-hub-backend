@@ -58,3 +58,6 @@ class UserGoogleRegister(SQLModel):
     google_id: str
     email: EmailStr
     full_name: str | None = Field(default=None, max_length=255)
+
+class RegisterResponse(SQLModel):
+    id: str

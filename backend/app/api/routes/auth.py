@@ -9,7 +9,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import Body
 
 import jwt
-from sqlmodel import select  # Add this import
+from sqlmodel import select
 
 from app import crud
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
@@ -17,9 +17,9 @@ from app.core import security
 from app.core.config import settings
 from app.core.security import get_password_hash
 from app.models.token import Message, Token, RefreshTokenRequest, NewPassword
-from app.models.user import UserPublic, UserCreate, UserGoogleLogin, UserGoogleRegister
+from app.models.user import UserPublic, UserCreate, UserGoogleLogin, UserGoogleRegister, RegisterResponse
 from app.models.otp import OTP, OTPVerify, OTPResponse, RenewOTP
-from app.models.invitation import Invitation, InviteCreate, InviteResponse, InviteCheck, InviteConsumeResponse  # Updated import
+from app.models.invitation import Invitation, InviteCreate, InviteResponse, InviteCheck
 
 from app.utils import (
     generate_password_reset_token,
@@ -51,17 +51,17 @@ def login(
         # Check if there's an existing non-expired OTP
         statement = (
             select(OTP)
-            .where(OTP.email == form_data.username)
+            .where(OTP.user_id == str(user.id))
             .order_by(OTP.created_at.desc())
         )
         existing_otp = session.exec(statement).first()
         
         # Reuse existing OTP if it's not expired, otherwise create a new one
-        if existing_otp and not existing_otp.is_expired():
+        if (existing_otp and not existing_otp.is_expired()):
             otp = existing_otp
         else:
             # Create a new OTP for verification
-            otp = OTP.generate(email=form_data.username)
+            otp = OTP.generate(email=form_data.username, user_id=str(user.id))
             session.add(otp)
             session.commit()
         
@@ -107,7 +107,7 @@ def google_login(
         raise HTTPException(status_code=400, detail="Inactive user")
     elif not user.is_verified:
         # Create and send a new OTP for verification since login failed due to unverified account
-        otp = OTP.generate(email=user_google.email)
+        otp = OTP.generate(email=user_google.email, user_id=str(user.id))
         session.add(otp)
         session.commit()
         
@@ -206,7 +206,7 @@ def register(
     user_create: UserCreate,
     invite_code: str | None = None,
     inviter_id: str | None = None
-) -> Message:
+) -> RegisterResponse:
     """
     Register a new user with optional invite logic
     """
@@ -254,7 +254,7 @@ def register(
             session.add(inviter_user)
     
     # Create and send OTP for email verification
-    otp = OTP.generate(email=user_create.email)
+    otp = OTP.generate(email=user_create.email, user_id=str(new_user.id))
     session.add(otp)
     session.commit()
     
@@ -270,7 +270,7 @@ def register(
         html_content=email_data.html_content,
     )
     
-    return Message(message="Registration successful. Please verify your email address.")
+    return RegisterResponse(id=str(new_user.id))
 
 @router.post("/register-google")
 def google_register(
@@ -278,7 +278,7 @@ def google_register(
     user_google: UserGoogleRegister,
     invite_code: str | None = None,
     inviter_id: str | None = None
-) -> Message:
+) -> RegisterResponse:
     """
     Google register
     """
@@ -326,7 +326,7 @@ def google_register(
             session.add(inviter_user)
     
     # Create and send OTP for email verification
-    otp = OTP.generate(email=user_google.email)
+    otp = OTP.generate(email=user_google.email, user_id=str(new_user.id))
     session.add(otp)
     session.commit()
     
@@ -342,23 +342,28 @@ def google_register(
         html_content=email_data.html_content,
     )
     
-    return Message(message="Registration successful. Please verify your email address.")
+    return RegisterResponse(id=str(new_user.id))
 
 @router.post("/verify-email", response_model=OTPResponse)
 def verify_email(session: SessionDep, verification_data: OTPVerify) -> OTPResponse:
     """
     Verify email using OTP
     """
-    # Get the latest OTP for this email
+    # Get user first
+    user = crud.get_user_by_id(session=session, user_id=verification_data.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get the latest OTP for this user
     statement = (
         select(OTP)
-        .where(OTP.email == verification_data.email)
+        .where(OTP.user_id == verification_data.user_id)
         .order_by(OTP.created_at.desc())
     )
     otp_record = session.exec(statement).first()
     
     if not otp_record:
-        raise HTTPException(status_code=404, detail="No verification code found for this email")
+        raise HTTPException(status_code=404, detail="No verification code found for this user")
     
     if otp_record.is_expired():
         raise HTTPException(status_code=400, detail="Verification code has expired")
@@ -374,10 +379,8 @@ def verify_email(session: SessionDep, verification_data: OTPVerify) -> OTPRespon
     session.add(otp_record)
     
     # Mark user as verified
-    user = crud.get_user_by_email(session=session, email=verification_data.email)
-    if user:
-        user.is_verified = True
-        session.add(user)
+    user.is_verified = True
+    session.add(user)
     
     # Ensure changes are committed to the database
     session.commit()
@@ -387,63 +390,70 @@ def verify_email(session: SessionDep, verification_data: OTPVerify) -> OTPRespon
         expires_at=otp_record.expires_at
     )
 
-@router.post("/renew-otp")
-def renew_otp(session: SessionDep, renew: RenewOTP) -> Message:
+@router.post("/verify-email-resend")
+def verify_email_resend(session: SessionDep, renew: RenewOTP) -> Message:
     """
     Renew OTP code, delete the previous one, generate a new one, and send an email to the user
     """
-    user = crud.get_user_by_email(session=session, email=renew.email)
+    # Find user by ID
+    user = crud.get_user_by_id(session=session, user_id=renew.user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get user's email from their record
+    email = user.email
     
     # If user is already verified, don't create a new OTP
     if user.is_verified:
         return Message(message="Your account is already verified. You can log in directly.")
     
     # Delete previous OTPs
-    statement = select(OTP).where(OTP.email == renew.email)
+    statement = select(OTP).where(OTP.user_id == renew.user_id)
     otps = session.exec(statement).all()
     for otp in otps:
         session.delete(otp)
     
     # Generate new OTP
-    new_otp = OTP.generate(email=renew.email)
+    new_otp = OTP.generate(email=email, user_id=renew.user_id)
     session.add(new_otp)
     session.commit()
     
     # Send verification email
     email_data = generate_email_verification_otp(
-        email_to=renew.email, 
+        email_to=email, 
         otp=new_otp.code,
         deeplink=f"https://assistlyai.space/doctor/verify/{new_otp.code}"
     )
     send_email(
-        email_to=renew.email,
+        email_to=email,
         subject=email_data.subject,
         html_content=email_data.html_content,
     )
     
     return Message(message="New OTP generated and sent to your email")
 
-@router.post("/password-recovery/{email}")
-def recover_password(email: str, session: SessionDep) -> Message:
+@router.post("/password-recovery/{user_id}")
+def recover_password(user_id: str, session: SessionDep) -> Message:
     """
     Password Recovery
     """
-    user = crud.get_user_by_email(session=session, email=email)
+    # Find user by ID instead of email
+    user = crud.get_user_by_id(session=session, user_id=user_id)
 
     if not user:
         raise HTTPException(
             status_code=404,
-            detail="The user with this email does not exist in the system.",
+            detail="User not found",
         )
+    
+    email = user.email
     password_reset_token = generate_password_reset_token(email=email)
     email_data = generate_reset_password_email(
-        email_to=user.email, email=email, token=password_reset_token,
-        deeplink=f"https://assistlyai.space/doctor/reset-password/{password_reset_token}"
+        email_to=email, email=email, token=password_reset_token,
+        deeplink=f"https://assistlyai.space/doctor/verify/{password_reset_token}"
     )
     send_email(
-        email_to=user.email,
+        email_to=email,
         subject=email_data.subject,
         html_content=email_data.html_content,
     )
@@ -473,24 +483,27 @@ def reset_password(session: SessionDep, body: NewPassword) -> Message:
     return Message(message="Password updated successfully")
 
 @router.post(
-    "/password-recovery-html-content/{email}",
+    "/password-recovery-html-content/{user_id}",
     dependencies=[Depends(get_current_active_superuser)],
     response_class=HTMLResponse,
 )
-def recover_password_html_content(email: str, session: SessionDep) -> Any:
+def recover_password_html_content(user_id: str, session: SessionDep) -> Any:
     """
     HTML Content for Password Recovery
     """
-    user = crud.get_user_by_email(session=session, email=email)
+    # Find user by ID instead of email
+    user = crud.get_user_by_id(session=session, user_id=user_id)
 
     if not user:
         raise HTTPException(
             status_code=404,
-            detail="The user with this username does not exist in the system.",
+            detail="User not found",
         )
+    
+    email = user.email
     password_reset_token = generate_password_reset_token(email=email)
     email_data = generate_reset_password_email(
-        email_to=user.email, email=email, token=password_reset_token,
+        email_to=email, email=email, token=password_reset_token,
         deeplink=f"https://assistlyai.space/doctor/reset-password/{password_reset_token}"
     )
 
