@@ -8,6 +8,7 @@ from pydantic import EmailStr
 
 class OTPBase(SQLModel):
     email: EmailStr = Field(index=True, max_length=255)
+    user_id: str = Field(index=True)
     expires_at: datetime
     is_verified: bool = False
 
@@ -24,24 +25,25 @@ class OTP(OTPBase, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @classmethod
-    def generate(cls, email: str, expiration_minutes: int = 10) -> "OTP":
+    def generate(cls, email: str, user_id: str, expiration_minutes: int = 10) -> "OTP":
         """Generate a new OTP for the given email with specified expiration time"""
         otp_code = ''.join(secrets.choice('0123456789') for _ in range(6))
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=expiration_minutes)
         
         return cls(
             email=email,
+            user_id=user_id,
             code=otp_code,
             expires_at=expires_at
         )
 
 
 class OTPCreate(SQLModel):
-    email: EmailStr
+    user_id: str
 
 
 class OTPVerify(SQLModel):
-    email: EmailStr
+    user_id: str
     code: str = Field(min_length=6, max_length=6)
 
 
@@ -50,4 +52,4 @@ class OTPResponse(SQLModel):
     expires_at: datetime
 
 class RenewOTP(SQLModel):
-    email: EmailStr
+    user_id: str
