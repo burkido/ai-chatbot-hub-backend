@@ -17,9 +17,8 @@ fileConfig(config.config_file_name)
 from app.models.user import User, UserBase, UserCreate, UserRegister, UserUpdate, UserUpdateMe, UpdatePassword, UpdateCredit, UserPublic, UsersPublic  # noqa
 from app.models.item import Item, ItemBase, ItemCreate, ItemUpdate, ItemPublic, ItemsPublic  # noqa
 from app.models.otp import OTP  # noqa
-#from app.models.chat import ChatMessage, ChatRequest  # noqa
-#from app.models.token import Message, Token, TokenPayload, NewPassword  # noqa
 from app.models.redeem_code import RedeemCode  # noqa
+from app.models.invitation import Invitation  # noqa
 from app.core.config import settings  # noqa
 from sqlmodel import SQLModel
 

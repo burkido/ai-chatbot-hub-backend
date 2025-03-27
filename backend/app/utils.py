@@ -117,7 +117,7 @@ def generate_invite_friend_email(
     project_name = settings.PROJECT_NAME
     subject = f"{project_name} - Invitation from {inviter_name}"
     html_content = render_email_template(
-        template_name="invite_friend.mjml",
+        template_name="invite_friend.html",
         context={
             "project_name": project_name,
             "username": username,
