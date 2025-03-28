@@ -42,14 +42,12 @@ def chat_endpoint(
     vectorstore: PineconeVectorStore = Depends(get_vectorstore)
 ) -> ChatResponse:
     user = session.get(User, current_user.id)
-    if not user.is_premium:
-        if user.credit < 1:
-            raise HTTPException(
-                status_code=402, 
-                detail=get_translation("insufficient_credits", language)
-            )
-        crud.decrease_user_credit(session=session, user=user, amount=1)
     
+    # Initialize credit status flags
+    remaining_credit = user.credit
+    is_credit_sufficient = True
+    
+    # Get response from chat function
     response, sources = chat(
         chat_request.message, 
         chat_request.namespace,
@@ -59,11 +57,35 @@ def chat_endpoint(
         vectorstore
     )
     
+    # Handle credit deduction for non-premium users
+    if not user.is_premium:
+        # Calculate the credit cost based on whether sources were returned
+        credit_cost = 2 if sources else 1
+        
+        if user.credit < credit_cost:
+            # Mark as insufficient credit
+            is_credit_sufficient = False
+            
+            # Decrease whatever credit is available if not already 0
+            if user.credit > 0:
+                crud.decrease_user_credit(session=session, user=user, amount=user.credit)
+                remaining_credit = 0
+        else:
+            # User has sufficient credit, decrease the full amount
+            crud.decrease_user_credit(session=session, user=user, amount=credit_cost)
+            remaining_credit = user.credit
+    
     title = None
     if len(chat_request.history) == 0:
         title = generate_title(chat_request.message, chat_model)
         
-    return ChatResponse(content=response, title=title, sources=sources)
+    return ChatResponse(
+        content=response, 
+        title=title, 
+        sources=sources,
+        remaining_credit=remaining_credit,
+        is_credit_sufficient=is_credit_sufficient
+    )
 
 def augment_prompt(
         query: str,
@@ -89,11 +111,14 @@ def augment_prompt(
     for doc, score in results:
         print(f"Score for result: {score}")
         if score >= similarity_threshold:
+            # Convert score to percentage (scores are typically between 0-1)
+            similarity_percentage = round(score * 100, 2)
             source_info = {
                 "authors": doc.metadata.get("authors", "Unknown"),
                 "book_title": doc.metadata.get("book_title", "Untitled"),
                 "source": doc.metadata.get("source", ""),
-                "score": score
+                "score": score,
+                "similarity_percentage": similarity_percentage
             }
             sources.append(source_info)
             filtered_results.append((doc, score))
@@ -125,9 +150,6 @@ def chat(
         vectorstore: PineconeVectorStore
 ) -> tuple[str, List[Dict[str, Any]]]:
     langchain_messages = []
-    
-    # Always insert a system message at the beginning
-    langchain_messages.append(SystemMessage(content="You are a helpful, kind, and polite assistant. Always respond with courtesy and respect."))
     
     # Process history messages
     for msg in history:
