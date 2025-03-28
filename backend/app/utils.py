@@ -2,21 +2,19 @@ import os, json, fitz, logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, TypedDict
-
+from typing import Any, Dict, TypedDict, Optional
 import emails  # type: ignore
 import jwt
 from jinja2 import Template
 from jwt.exceptions import InvalidTokenError
 
 from app.core.config import settings
-
+from app.core.i18n import get_translation, DEFAULT_LANGUAGE
 
 @dataclass
 class EmailData:
     html_content: str
     subject: str
-
 
 def render_email_template(*, template_name: str, context: dict[str, Any]) -> str:
     template_str = (
@@ -70,18 +68,18 @@ def send_email(
     # Raise an exception if the request failed
     response.raise_for_status()
 
-def generate_test_email(email_to: str, deeplink: str) -> EmailData:
+def generate_test_email(email_to: str, deeplink: str, language: str = DEFAULT_LANGUAGE) -> EmailData:
     project_name = settings.PROJECT_NAME
-    subject = f"{project_name} - Test email"
+    subject = get_translation("test_email_subject", language, project_name=project_name)
     html_content = render_email_template(
         template_name="test_email.html",
         context={"project_name": settings.PROJECT_NAME, "email": email_to, "deeplink": deeplink},
     )
     return EmailData(html_content=html_content, subject=subject)
 
-def generate_reset_password_email(email_to: str, email: str, token: str, deeplink: str) -> EmailData:
+def generate_reset_password_email(email_to: str, email: str, token: str, deeplink: str, language: str = DEFAULT_LANGUAGE) -> EmailData:
     project_name = settings.PROJECT_NAME
-    subject = f"{project_name} - Password recovery for user {email}"
+    subject = get_translation("password_recovery_subject", language, project_name=project_name, email=email)
     html_content = render_email_template(
         template_name="reset_password.html",
         context={
@@ -95,10 +93,10 @@ def generate_reset_password_email(email_to: str, email: str, token: str, deeplin
     return EmailData(html_content=html_content, subject=subject)
 
 def generate_new_account_email(
-    email_to: str, username: str, password: str, deeplink: str
+    email_to: str, username: str, password: str, deeplink: str, language: str = DEFAULT_LANGUAGE
 ) -> EmailData:
     project_name = settings.PROJECT_NAME
-    subject = f"{project_name} - New account for user {username}"
+    subject = get_translation("new_account_subject", language, project_name=project_name, username=username)
     html_content = render_email_template(
         template_name="new_account.html",
         context={
@@ -112,10 +110,10 @@ def generate_new_account_email(
     return EmailData(html_content=html_content, subject=subject)
 
 def generate_invite_friend_email(
-    email_to: str, username: str, inviter_name: str, deeplink: str
+    email_to: str, username: str, inviter_name: str, deeplink: str, language: str = DEFAULT_LANGUAGE
 ) -> EmailData:
     project_name = settings.PROJECT_NAME
-    subject = f"{project_name} - Invitation from {inviter_name}"
+    subject = get_translation("invitation_subject", language, project_name=project_name, inviter_name=inviter_name)
     html_content = render_email_template(
         template_name="invite_friend.html",
         context={
@@ -128,9 +126,9 @@ def generate_invite_friend_email(
     )
     return EmailData(html_content=html_content, subject=subject)
 
-def generate_email_verification_otp(email_to: str, otp: str, deeplink: str) -> EmailData:
+def generate_email_verification_otp(email_to: str, otp: str, deeplink: str, language: str = DEFAULT_LANGUAGE) -> EmailData:
     project_name = settings.PROJECT_NAME
-    subject = f"{project_name} - Email Verification"
+    subject = get_translation("email_verification_subject", language, project_name=project_name)
     html_content = render_email_template(
         template_name="verify_user.html",
         context={

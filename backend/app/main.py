@@ -2,11 +2,11 @@ import sentry_sdk
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from pathlib import Path
+from fastapi.openapi.utils import get_openapi
 
 from app.api.main import api_router
 from app.core.config import settings
+from app.core.i18n import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -34,6 +34,55 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
     )
 
-#app.mount("/.well-known", StaticFiles(directory=Path("app/static/.well-known")), name="well-known")
+# Custom OpenAPI schema to include Accept-Language header parameter
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description="International API with language support",
+        routes=app.routes,
+    )
+    
+    # Add global Accept-Language parameter
+    language_description = (
+        f"Preferred language for responses. "
+        f"Supported: {', '.join(SUPPORTED_LANGUAGES)}. "
+        f"Default: {DEFAULT_LANGUAGE}."
+    )
+    
+    openapi_schema["components"] = openapi_schema.get("components", {})
+    openapi_schema["components"]["parameters"] = openapi_schema["components"].get("parameters", {})
+    openapi_schema["components"]["parameters"]["Accept-Language"] = {
+        "name": "Accept-Language",
+        "in": "header",
+        "required": False,
+        "schema": {
+            "title": "Accept-Language",
+            "type": "string",
+            "default": DEFAULT_LANGUAGE,
+            "enum": list(SUPPORTED_LANGUAGES),
+        },
+        "description": language_description,
+    }
+    
+    # Apply this parameter to all paths
+    if "paths" in openapi_schema:
+        for path in openapi_schema["paths"].values():
+            for operation in path.values():
+                if "parameters" not in operation:
+                    operation["parameters"] = []
+                
+                operation["parameters"].append({
+                    "$ref": "#/components/parameters/Accept-Language"
+                })
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+# Set the custom OpenAPI schema
+app.openapi = custom_openapi
 
 app.include_router(api_router, prefix=settings.API_V1_STR)

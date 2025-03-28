@@ -1,0 +1,26 @@
+{
+  "email_verification_subject": "{project_name} - E-posta Doğrulama",
+  "password_recovery_subject": "{project_name} - {email} kullanıcısı için şifre kurtarma",
+  "new_account_subject": "{project_name} - {username} kullanıcısı için yeni hesap",
+  "invitation_subject": "{project_name} - {inviter_name} tarafından davet",
+  "test_email_subject": "{project_name} - Test e-postası",
+  
+  "account_inactive": "Hesabınız aktif değil. Lütfen doğrulamak için e-postanızı kontrol edin.",
+  "account_not_verified": "Hesap doğrulanmadı. E-posta adresinize bir doğrulama kodu gönderildi.",
+  "incorrect_credentials": "Hatalı e-posta veya şifre",
+  "email_successfully_verified": "E-posta başarıyla doğrulandı",
+  "account_already_verified": "Hesabınız zaten doğrulanmış. Doğrudan giriş yapabilirsiniz.",
+  "new_otp_sent": "Yeni doğrulama kodu oluşturuldu ve e-postanıza gönderildi",
+  "password_recovery_sent": "Şifre kurtarma e-postası gönderildi",
+  "password_updated": "Şifre başarıyla güncellendi",
+  "user_not_found": "Kullanıcı bulunamadı",
+  "invalid_token": "Geçersiz token",
+  "user_exists": "Bu e-posta ile kayıtlı bir kullanıcı zaten var.",
+  "inactive_user": "Aktif olmayan kullanıcı",
+  "verification_expired": "Doğrulama kodu süresi doldu",
+  "already_verified": "E-posta zaten doğrulanmış",
+  "invalid_verification_code": "Geçersiz doğrulama kodu",
+  "no_verification_code": "Bu kullanıcı için doğrulama kodu bulunamadı",
+  "insufficient_credits": "Yeterli krediniz yok. Devam etmek için lütfen daha fazla kredi satın alın.",
+  "invalid_credit_amount": "Kredi miktarı pozitif olmalıdır"
+}

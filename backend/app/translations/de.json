@@ -1,0 +1,26 @@
+{
+  "email_verification_subject": "{project_name} - E-Mail-Verifizierung",
+  "password_recovery_subject": "{project_name} - Passwortwiederherstellung für Benutzer {email}",
+  "new_account_subject": "{project_name} - Neues Konto für Benutzer {username}",
+  "invitation_subject": "{project_name} - Einladung von {inviter_name}",
+  "test_email_subject": "{project_name} - Test-E-Mail",
+  
+  "account_inactive": "Ihr Konto ist inaktiv. Bitte überprüfen Sie Ihre E-Mail, um es zu verifizieren.",
+  "account_not_verified": "Konto nicht verifiziert. Ein Verifizierungscode wurde an Ihre E-Mail-Adresse gesendet.",
+  "incorrect_credentials": "Falsche E-Mail oder Passwort",
+  "email_successfully_verified": "E-Mail erfolgreich verifiziert",
+  "account_already_verified": "Ihr Konto ist bereits verifiziert. Sie können sich direkt anmelden.",
+  "new_otp_sent": "Ein neuer Verifizierungscode wurde generiert und an Ihre E-Mail gesendet",
+  "password_recovery_sent": "E-Mail zur Passwortwiederherstellung gesendet",
+  "password_updated": "Passwort erfolgreich aktualisiert",
+  "user_not_found": "Benutzer nicht gefunden",
+  "invalid_token": "Ungültiges Token",
+  "user_exists": "Der Benutzer mit dieser E-Mail existiert bereits im System.",
+  "inactive_user": "Inaktiver Benutzer",
+  "verification_expired": "Verifizierungscode ist abgelaufen",
+  "already_verified": "E-Mail ist bereits verifiziert",
+  "invalid_verification_code": "Ungültiger Verifizierungscode",
+  "no_verification_code": "Kein Verifizierungscode für diesen Benutzer gefunden",
+  "insufficient_credits": "Sie haben nicht genügend Guthaben. Bitte kaufen Sie mehr Guthaben, um fortzufahren.",
+  "invalid_credit_amount": "Guthabenbetrag muss positiv sein"
+}
