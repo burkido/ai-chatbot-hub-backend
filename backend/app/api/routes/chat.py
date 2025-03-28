@@ -3,9 +3,10 @@ import os
 from fastapi import APIRouter, HTTPException, Depends
 
 from app import crud
-from app.api.deps import SessionDep, CurrentUser
+from app.api.deps import SessionDep, CurrentUser, LanguageDep
 from app.models.user import User
 from app.models.chat import ChatMessage, ChatRequest, ChatResponse
+from app.core.i18n import get_translation
 
 from typing import List, Dict, Any
 
@@ -36,13 +37,17 @@ def chat_endpoint(
     chat_request: ChatRequest,
     session: SessionDep,
     current_user: CurrentUser,
+    language: LanguageDep,  # Added language dependency
     chat_model: ChatOpenAI = Depends(get_chat_openai),
     vectorstore: PineconeVectorStore = Depends(get_vectorstore)
 ) -> ChatResponse:
     user = session.get(User, current_user.id)
     if not user.is_premium:
         if user.credit < 1:
-            raise HTTPException(status_code=402, detail="Insufficient credits")
+            raise HTTPException(
+                status_code=402, 
+                detail=get_translation("insufficient_credits", language)
+            )
         crud.decrease_user_credit(session=session, user=user, amount=1)
     
     response, sources = chat(

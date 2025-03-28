@@ -1,0 +1,26 @@
+{
+  "email_verification_subject": "{project_name} - Verificación de correo electrónico",
+  "password_recovery_subject": "{project_name} - Recuperación de contraseña para el usuario {email}",
+  "new_account_subject": "{project_name} - Nueva cuenta para el usuario {username}",
+  "invitation_subject": "{project_name} - Invitación de {inviter_name}",
+  "test_email_subject": "{project_name} - Correo electrónico de prueba",
+  
+  "account_inactive": "Tu cuenta está inactiva. Por favor, revisa tu correo electrónico para verificarla.",
+  "account_not_verified": "Cuenta no verificada. Se ha enviado un código de verificación a tu correo electrónico.",
+  "incorrect_credentials": "Correo electrónico o contraseña incorrectos",
+  "email_successfully_verified": "Correo electrónico verificado con éxito",
+  "account_already_verified": "Tu cuenta ya está verificada. Puedes iniciar sesión directamente.",
+  "new_otp_sent": "Se ha generado un nuevo código de verificación y se ha enviado a tu correo electrónico",
+  "password_recovery_sent": "Correo de recuperación de contraseña enviado",
+  "password_updated": "Contraseña actualizada con éxito",
+  "user_not_found": "Usuario no encontrado",
+  "invalid_token": "Token inválido",
+  "user_exists": "El usuario con este correo electrónico ya existe en el sistema.",
+  "inactive_user": "Usuario inactivo",
+  "verification_expired": "El código de verificación ha expirado",
+  "already_verified": "El correo electrónico ya está verificado",
+  "invalid_verification_code": "Código de verificación inválido",
+  "no_verification_code": "No se encontró código de verificación para este usuario",
+  "insufficient_credits": "No tienes suficientes créditos. Por favor compra más créditos para continuar.",
+  "invalid_credit_amount": "La cantidad de crédito debe ser positiva"
+}

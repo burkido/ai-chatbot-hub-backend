@@ -4,8 +4,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from sqlmodel import func, select
 
-from app.api.deps import CurrentUser, SessionDep
-#from app.models.models import Item, ItemCreate, ItemPublic, ItemsPublic, ItemUpdate, Message
+from app.api.deps import CurrentUser, SessionDep, LanguageDep
+from app.core.i18n import get_translation
 from app.models.item import Item, ItemCreate, ItemPublic, ItemsPublic, ItemUpdate
 from app.models.token import Message
 
@@ -14,7 +14,7 @@ router = APIRouter()
 
 @router.get("/", response_model=ItemsPublic)
 def read_items(
-    session: SessionDep, current_user: CurrentUser, skip: int = 0, limit: int = 100
+    session: SessionDep, current_user: CurrentUser, language: LanguageDep, skip: int = 0, limit: int = 100
 ) -> Any:
     """
     Retrieve items.
@@ -44,21 +44,21 @@ def read_items(
 
 
 @router.get("/{id}", response_model=ItemPublic)
-def read_item(session: SessionDep, current_user: CurrentUser, id: uuid.UUID) -> Any:
+def read_item(session: SessionDep, current_user: CurrentUser, language: LanguageDep, id: uuid.UUID) -> Any:
     """
     Get item by ID.
     """
     item = session.get(Item, id)
     if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
+        raise HTTPException(status_code=404, detail=get_translation("Item not found", language))
     if not current_user.is_superuser and (item.owner_id != current_user.id):
-        raise HTTPException(status_code=400, detail="Not enough permissions")
+        raise HTTPException(status_code=400, detail=get_translation("Not enough permissions", language))
     return item
 
 
 @router.post("/", response_model=ItemPublic)
 def create_item(
-    *, session: SessionDep, current_user: CurrentUser, item_in: ItemCreate
+    *, session: SessionDep, current_user: CurrentUser, language: LanguageDep, item_in: ItemCreate
 ) -> Any:
     """
     Create new item.
@@ -75,6 +75,7 @@ def update_item(
     *,
     session: SessionDep,
     current_user: CurrentUser,
+    language: LanguageDep,
     id: uuid.UUID,
     item_in: ItemUpdate,
 ) -> Any:
@@ -83,9 +84,9 @@ def update_item(
     """
     item = session.get(Item, id)
     if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
+        raise HTTPException(status_code=404, detail=get_translation("Item not found", language))
     if not current_user.is_superuser and (item.owner_id != current_user.id):
-        raise HTTPException(status_code=400, detail="Not enough permissions")
+        raise HTTPException(status_code=400, detail=get_translation("Not enough permissions", language))
     update_dict = item_in.model_dump(exclude_unset=True)
     item.sqlmodel_update(update_dict)
     session.add(item)
@@ -96,16 +97,16 @@ def update_item(
 
 @router.delete("/{id}")
 def delete_item(
-    session: SessionDep, current_user: CurrentUser, id: uuid.UUID
+    session: SessionDep, current_user: CurrentUser, language: LanguageDep, id: uuid.UUID
 ) -> Message:
     """
     Delete an item.
     """
     item = session.get(Item, id)
     if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
+        raise HTTPException(status_code=404, detail=get_translation("Item not found", language))
     if not current_user.is_superuser and (item.owner_id != current_user.id):
-        raise HTTPException(status_code=400, detail="Not enough permissions")
+        raise HTTPException(status_code=400, detail=get_translation("Not enough permissions", language))
     session.delete(item)
     session.commit()
-    return Message(message="Item deleted successfully")
+    return Message(message=get_translation("Item deleted successfully", language))

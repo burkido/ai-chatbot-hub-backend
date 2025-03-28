@@ -1,7 +1,7 @@
-from datetime import timedelta, datetime, timezone  # Add timezone import
+from datetime import timedelta, datetime, timezone
 from typing import Annotated, Any, List
 from uuid import UUID
-import uuid  # Add this import to fix the NameError
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse
@@ -12,12 +12,13 @@ import jwt
 from sqlmodel import select
 
 from app import crud
-from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
+from app.api.deps import CurrentUser, SessionDep, LanguageDep, get_current_active_superuser
 from app.core import security
 from app.core.config import settings
+from app.core.i18n import get_translation
 from app.core.security import get_password_hash
 from app.models.token import Message, Token, RefreshTokenRequest, NewPassword
-from app.models.user import UserPublic, UserCreate, UserGoogleLogin, UserGoogleRegister, RegisterResponse
+from app.models.user import UserPublic, UserCreate, UserGoogleLogin, RegisterResponse
 from app.models.otp import OTP, OTPVerify, OTPResponse, RenewOTP
 from app.models.invitation import Invitation, InviteCreate, InviteResponse, InviteCheck
 
@@ -35,41 +36,52 @@ router = APIRouter()
 
 @router.post("/login")
 def login(
-    session: SessionDep, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
+    session: SessionDep, 
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    language: LanguageDep
 ) -> Token:
     """
-    OAuth2 compatible token login, get an access token for future requests
+    OAuth2 compatible token login, get an access token for future requests.
     """
     user = crud.authenticate(
         session=session, email=form_data.username, password=form_data.password
     )
     if not user:
-        raise HTTPException(status_code=400, detail="Incorrect email or password")
-    elif not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    elif not user.is_verified:
-        # Check if there's an existing non-expired OTP
-        statement = (
-            select(OTP)
-            .where(OTP.user_id == str(user.id))
-            .order_by(OTP.created_at.desc())
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=get_translation("incorrect_credentials", language),  
         )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=get_translation("account_inactive", language),  
+        )
+
+    if not user.is_verified:
+        # Check if there's an existing non-expired OTP
+        statement = select(OTP).where(OTP.user_id == str(user.id)).order_by(OTP.created_at.desc())
         existing_otp = session.exec(statement).first()
         
-        # Reuse existing OTP if it's not expired, otherwise create a new one
-        if (existing_otp and not existing_otp.is_expired()):
+        # Handle OTP expiration
+        if existing_otp and not existing_otp.is_expired():
             otp = existing_otp
         else:
-            # Create a new OTP for verification
+            if existing_otp:
+                session.delete(existing_otp)
+                session.commit()
+                
             otp = OTP.generate(email=form_data.username, user_id=str(user.id))
             session.add(otp)
             session.commit()
-        
-        # Send verification email
+            session.refresh(otp)
+
+        # Send verification email with localized subject
         email_data = generate_email_verification_otp(
             email_to=form_data.username, 
             otp=otp.code,
-            deeplink=f"https://assistlyai.space/doctor/verify/{otp.code}"
+            deeplink=f"https://assistlyai.space/doctor/verify/{otp.code}",
+            language=language  
         )
         send_email(
             email_to=form_data.username,
@@ -78,10 +90,11 @@ def login(
         )
         
         raise HTTPException(
-            status_code=403, 
-            detail="Account not verified. A verification code has been sent to your email."
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail=get_translation("account_not_verified", language)  
         )
-    
+
+    # Generate Tokens
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     
@@ -95,27 +108,36 @@ def login(
 
 @router.post("/login-google")
 def google_login(
-    session: SessionDep, user_google: UserGoogleLogin
+    session: SessionDep, 
+    user_google: UserGoogleLogin,
+    language: LanguageDep  
 ) -> Token:
     """
     Google login
     """
     user = crud.get_user_by_email(session=session, email=user_google.email)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(
+            status_code=404, 
+            detail=get_translation("user_not_found", language)  
+        )
     elif not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(
+            status_code=400, 
+            detail=get_translation("inactive_user", language)  
+        )
     elif not user.is_verified:
         # Create and send a new OTP for verification since login failed due to unverified account
         otp = OTP.generate(email=user_google.email, user_id=str(user.id))
         session.add(otp)
         session.commit()
         
-        # Send verification email
+        # Send verification email with localized subject
         email_data = generate_email_verification_otp(
             email_to=user_google.email, 
             otp=otp.code,
-            deeplink=f"https://assistlyai.space/doctor/verify/{otp.code}"
+            deeplink=f"https://assistlyai.space/doctor/verify/{otp.code}",
+            language=language  
         )
         send_email(
             email_to=user_google.email,
@@ -125,7 +147,7 @@ def google_login(
         
         raise HTTPException(
             status_code=403, 
-            detail="Account not verified. A new verification code has been sent to your email."
+            detail=get_translation("account_not_verified", language)  
         )
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -141,7 +163,9 @@ def google_login(
 
 @router.post("/refresh-token")
 def refresh_access_token(
-    session: SessionDep, token_request: RefreshTokenRequest
+    session: SessionDep, 
+    token_request: RefreshTokenRequest,
+    language: LanguageDep  
 ) -> Token:
     """
     Refresh access token
@@ -150,30 +174,49 @@ def refresh_access_token(
         payload = jwt.decode(token_request.refresh_token, settings.SECRET_KEY, algorithms=['HS256'])
         user_id = payload.get("sub")
         if user_id is None:
-            raise HTTPException(status_code=401, detail="Invalid refresh token")
+            raise HTTPException(
+                status_code=401, 
+                detail=get_translation("invalid_token", language)
+            )
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Refresh token expired")
+        raise HTTPException(
+            status_code=401, 
+            detail=get_translation("invalid_token", language)
+        )
     except jwt.DecodeError:
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        raise HTTPException(
+            status_code=401, 
+            detail=get_translation("invalid_token", language)
+        )
     except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        raise HTTPException(
+            status_code=401, 
+            detail=get_translation("invalid_token", language)
+        )
 
     user = crud.get_user_by_id(session=session, user_id=user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(
+            status_code=404, 
+            detail=get_translation("user_not_found", language)
+        )
     elif not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(
+            status_code=400, 
+            detail=get_translation("inactive_user", language)
+        )
     elif not user.is_verified:
         # Create and send a new OTP for verification since token refresh failed due to unverified account
-        otp = OTP.generate(email=user.email)
+        otp = OTP.generate(email=user.email, user_id=str(user.id))
         session.add(otp)
         session.commit()
         
-        # Send verification email
+        # Send verification email with localized subject
         email_data = generate_email_verification_otp(
             email_to=user.email, 
             otp=otp.code,
-            deeplink=f"https://assistlyai.space/doctor/verify/{otp.code}"
+            deeplink=f"https://assistlyai.space/doctor/verify/{otp.code}",
+            language=language  
         )
         send_email(
             email_to=user.email,
@@ -183,7 +226,7 @@ def refresh_access_token(
         
         raise HTTPException(
             status_code=403, 
-            detail="Account not verified. A new verification code has been sent to your email."
+            detail=get_translation("account_not_verified", language)
         )
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -204,8 +247,7 @@ def refresh_access_token(
 def register(
     session: SessionDep,
     user_create: UserCreate,
-    invite_code: str | None = None,
-    inviter_id: str | None = None
+    language: LanguageDep
 ) -> RegisterResponse:
     """
     Register a new user with optional invite logic
@@ -214,43 +256,43 @@ def register(
     if user:
         raise HTTPException(
             status_code=409,
-            detail="The user with this email already exists in the system.",
+            detail=get_translation("user_exists", language),
         )
     
     # If invited, validate the invitation code
-    if invite_code and inviter_id:
+    if user_create.invite_code and user_create.inviter_id:
         # Find the invitation
         statement = (
             select(Invitation)
-            .where(Invitation.code == invite_code)
-            .where(Invitation.inviter_id == UUID(inviter_id))  # Changed from uuid.UUID to UUID
+            .where(Invitation.code == user_create.invite_code)
+            .where(Invitation.inviter_id == UUID(user_create.inviter_id))
         )
         invitation = session.exec(statement).first()
         
         if not invitation:
-            raise HTTPException(status_code=404, detail="Invalid invitation code")
+            raise HTTPException(status_code=404, detail=get_translation("invalid_token", language))
         
         if invitation.is_used:
-            raise HTTPException(status_code=400, detail="Invitation code already used")
+            raise HTTPException(status_code=400, detail=get_translation("invitation_code_used", language))
         
         if invitation.is_expired():
-            raise HTTPException(status_code=400, detail="Invitation code has expired")
+            raise HTTPException(status_code=400, detail=get_translation("invitation_code_expired", language))
         
         # Mark invitation as used using the consume method
         invitation.consume()
         session.add(invitation)
         
         # Add bonus credits for invited user
-        user_create.credit = 30
+        user_create.credit = 20
 
     # Create the new user
     new_user = crud.create_user(session=session, user_create=user_create)
 
     # Give credits to inviter if invitation is valid
-    if invite_code and inviter_id:
-        inviter_user = crud.get_user_by_id(session=session, user_id=inviter_id)
+    if user_create.invite_code and user_create.inviter_id:
+        inviter_user = crud.get_user_by_id(session=session, user_id=user_create.inviter_id)
         if inviter_user:
-            inviter_user.credit += 20
+            inviter_user.credit += 10
             session.add(inviter_user)
     
     # Create and send OTP for email verification
@@ -262,7 +304,8 @@ def register(
     email_data = generate_email_verification_otp(
         email_to=user_create.email, 
         otp=otp.code,
-        deeplink=f"https://assistlyai.space/doctor/verify/{otp.code}"
+        deeplink=f"https://assistlyai.space/doctor/verify/{otp.code}",
+        language=language  
     )
     send_email(
         email_to=user_create.email,
@@ -272,87 +315,22 @@ def register(
     
     return RegisterResponse(id=str(new_user.id))
 
-@router.post("/register-google")
-def google_register(
-    session: SessionDep,
-    user_google: UserGoogleRegister,
-    invite_code: str | None = None,
-    inviter_id: str | None = None
-) -> RegisterResponse:
-    """
-    Google register
-    """
-    user = crud.get_user_by_google_id(session=session, google_id=user_google.google_id)
-    if user:
-        raise HTTPException(
-            status_code=409,
-            detail="The user with this email already exists in the system.",
-        )
-    
-    # If invited, validate the invitation code
-    if invite_code and inviter_id:
-        # Find the invitation
-        statement = (
-            select(Invitation)
-            .where(Invitation.code == invite_code)
-            .where(Invitation.inviter_id == UUID(inviter_id))  # Changed from uuid.UUID to UUID
-        )
-        invitation = session.exec(statement).first()
-        
-        if not invitation:
-            raise HTTPException(status_code=404, detail="Invalid invitation code")
-        
-        if invitation.is_used:
-            raise HTTPException(status_code=400, detail="Invitation code already used")
-        
-        if invitation.is_expired():
-            raise HTTPException(status_code=400, detail="Invitation code has expired")
-        
-        # Mark invitation as used using the consume method
-        invitation.consume()
-        session.add(invitation)
-        
-        # Add bonus credits for invited user 
-        user_google.credit = 30
-
-    # Create the new user
-    new_user = crud.create_user(session=session, user_google=user_google)
-
-    # Give credits to inviter if invitation is valid
-    if invite_code and inviter_id:
-        inviter_user = crud.get_user_by_id(session=session, user_id=inviter_id)
-        if inviter_user:
-            inviter_user.credit += 20  # Make sure the field name is consistent
-            session.add(inviter_user)
-    
-    # Create and send OTP for email verification
-    otp = OTP.generate(email=user_google.email, user_id=str(new_user.id))
-    session.add(otp)
-    session.commit()
-    
-    # Send verification email
-    email_data = generate_email_verification_otp(
-        email_to=user_google.email, 
-        otp=otp.code,
-        deeplink=f"https://assistlyai.space/doctor/verify/{otp.code}"
-    )
-    send_email(
-        email_to=user_google.email,
-        subject=email_data.subject,
-        html_content=email_data.html_content,
-    )
-    
-    return RegisterResponse(id=str(new_user.id))
-
 @router.post("/verify-email", response_model=OTPResponse)
-def verify_email(session: SessionDep, verification_data: OTPVerify) -> OTPResponse:
+def verify_email(
+    session: SessionDep, 
+    verification_data: OTPVerify,
+    language: LanguageDep
+) -> OTPResponse:
     """
-    Verify email using OTP
+    Verify email using OTP with localized responses
     """
     # Get user first
     user = crud.get_user_by_id(session=session, user_id=verification_data.user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail=get_translation("user_not_found", language)
+        )
     
     # Get the latest OTP for this user
     statement = (
@@ -363,16 +341,28 @@ def verify_email(session: SessionDep, verification_data: OTPVerify) -> OTPRespon
     otp_record = session.exec(statement).first()
     
     if not otp_record:
-        raise HTTPException(status_code=404, detail="No verification code found for this user")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail=get_translation("no_verification_code", language)
+        )
+
     if otp_record.is_expired():
-        raise HTTPException(status_code=400, detail="Verification code has expired")
-    
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail=get_translation("verification_expired", language)  
+        )
+
     if otp_record.is_verified:
-        raise HTTPException(status_code=400, detail="Email is already verified")
-    
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=get_translation("already_verified", language)  
+        )
+
     if otp_record.code != verification_data.code:
-        raise HTTPException(status_code=400, detail="Invalid verification code")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=get_translation("invalid_verification_code", language)  
+        )
     
     # Mark OTP as verified
     otp_record.is_verified = True
@@ -386,26 +376,33 @@ def verify_email(session: SessionDep, verification_data: OTPVerify) -> OTPRespon
     session.commit()
     
     return OTPResponse(
-        message="Email successfully verified", 
+        message=get_translation("email_successfully_verified", language),  # Localized success message
         expires_at=otp_record.expires_at
     )
 
 @router.post("/verify-email-resend")
-def verify_email_resend(session: SessionDep, renew: RenewOTP) -> Message:
+def verify_email_resend(
+    session: SessionDep, 
+    renew: RenewOTP,
+    language: LanguageDep  
+) -> Message:
     """
     Renew OTP code, delete the previous one, generate a new one, and send an email to the user
     """
     # Find user by ID
     user = crud.get_user_by_id(session=session, user_id=renew.user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(
+            status_code=404, 
+            detail=get_translation("user_not_found", language)
+        )
     
     # Get user's email from their record
     email = user.email
     
     # If user is already verified, don't create a new OTP
     if user.is_verified:
-        return Message(message="Your account is already verified. You can log in directly.")
+        return Message(message=get_translation("account_already_verified", language))
     
     # Delete previous OTPs
     statement = select(OTP).where(OTP.user_id == renew.user_id)
@@ -418,11 +415,12 @@ def verify_email_resend(session: SessionDep, renew: RenewOTP) -> Message:
     session.add(new_otp)
     session.commit()
     
-    # Send verification email
+    # Send verification email with localized subject
     email_data = generate_email_verification_otp(
         email_to=email, 
         otp=new_otp.code,
-        deeplink=f"https://assistlyai.space/doctor/verify/{new_otp.code}"
+        deeplink=f"https://assistlyai.space/doctor/verify/{new_otp.code}",
+        language=language  
     )
     send_email(
         email_to=email,
@@ -430,12 +428,16 @@ def verify_email_resend(session: SessionDep, renew: RenewOTP) -> Message:
         html_content=email_data.html_content,
     )
     
-    return Message(message="New OTP generated and sent to your email")
+    return Message(message=get_translation("new_otp_sent", language))
 
 @router.post("/password-recovery/{user_id}")
-def recover_password(user_id: str, session: SessionDep) -> Message:
+def recover_password(
+    user_id: str, 
+    session: SessionDep,
+    language: LanguageDep  
+) -> Message:
     """
-    Password Recovery
+    Password Recovery with localized messages
     """
     # Find user by ID instead of email
     user = crud.get_user_by_id(session=session, user_id=user_id)
@@ -443,51 +445,67 @@ def recover_password(user_id: str, session: SessionDep) -> Message:
     if not user:
         raise HTTPException(
             status_code=404,
-            detail="User not found",
+            detail=get_translation("user_not_found", language),  
         )
     
     email = user.email
     password_reset_token = generate_password_reset_token(email=email)
+    
+    # Generate email with localized subject
     email_data = generate_reset_password_email(
-        email_to=email, email=email, token=password_reset_token,
-        deeplink=f"https://assistlyai.space/doctor/verify/{password_reset_token}"
+        email_to=email, 
+        email=email, 
+        token=password_reset_token,
+        deeplink=f"https://assistlyai.space/doctor/verify/{password_reset_token}",
+        language=language  
     )
+    
     send_email(
         email_to=email,
         subject=email_data.subject,
         html_content=email_data.html_content,
     )
-    return Message(message="Password recovery email sent")
-
+    
+    return Message(message=get_translation("password_recovery_sent", language))  # Localized success message
 
 @router.post("/reset-password/")
-def reset_password(session: SessionDep, body: NewPassword) -> Message:
+def reset_password(
+    session: SessionDep, 
+    body: NewPassword,
+    language: LanguageDep  
+) -> Message:
     """
     Reset password
     """
     email = verify_password_reset_token(token=body.token)
     if not email:
-        raise HTTPException(status_code=400, detail="Invalid token")
+        raise HTTPException(
+            status_code=400, 
+            detail=get_translation("invalid_token", language)
+        )
     user = crud.get_user_by_email(session=session, email=email)
     if not user:
         raise HTTPException(
             status_code=404,
-            detail="The user with this email does not exist in the system.",
+            detail=get_translation("user_not_found", language),
         )
     elif not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(
+            status_code=400, 
+            detail=get_translation("inactive_user", language)
+        )
     hashed_password = get_password_hash(password=body.new_password)
     user.hashed_password = hashed_password
     session.add(user)
     session.commit()
-    return Message(message="Password updated successfully")
+    return Message(message=get_translation("password_updated", language))
 
 @router.post(
     "/password-recovery-html-content/{user_id}",
     dependencies=[Depends(get_current_active_superuser)],
     response_class=HTMLResponse,
 )
-def recover_password_html_content(user_id: str, session: SessionDep) -> Any:
+def recover_password_html_content(user_id: str, session: SessionDep, language: LanguageDep) -> Any:
     """
     HTML Content for Password Recovery
     """
@@ -497,7 +515,7 @@ def recover_password_html_content(user_id: str, session: SessionDep) -> Any:
     if not user:
         raise HTTPException(
             status_code=404,
-            detail="User not found",
+            detail=get_translation("user_not_found", language),
         )
     
     email = user.email
@@ -516,6 +534,7 @@ def invite_friend(
     session: SessionDep,
     invite_create: InviteCreate,
     current_user: CurrentUser,
+    language: LanguageDep  
 ) -> Any:
     """
     Invite a friend to register on the platform
@@ -525,7 +544,7 @@ def invite_friend(
     if invited_user:
         raise HTTPException(
             status_code=409,
-            detail="The invited user with this email already exists in the system.",
+            detail=get_translation("user_exists", language),
         )
     
     # Check if there's already an active invitation for this email
@@ -554,12 +573,13 @@ def invite_friend(
     # Generate the deeplink with the invitation code
     deeplink = f"https://assistlyai.space/doctor/register/{current_user.id}/{invitation.code}"
     
-    # Send invitation email
+    # Send invitation email with localized subject
     email_data = generate_invite_friend_email(
         email_to=invite_create.email_to,
         username=current_user.email,
         inviter_name=current_user.email,
-        deeplink=deeplink
+        deeplink=deeplink,
+        language=language  
     )
     send_email(
         email_to=invite_create.email_to,
@@ -612,6 +632,7 @@ def get_user_invites(
     user_id: UUID,
     current_user: CurrentUser,
     session: SessionDep,
+    language: LanguageDep
 ) -> Any:
     """
     Get all invitations sent by a user.
@@ -620,7 +641,7 @@ def get_user_invites(
     if str(current_user.id) != str(user_id) and not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
+            detail=get_translation("not_authorized", language)
         )
     
     invitations = session.exec(

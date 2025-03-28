@@ -11,13 +11,15 @@ class UserBase(SQLModel):
     is_active: bool = True
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
-    credit: int = Field(default=7, ge=0)
+    credit: int = Field(default=10, ge=0)
     google_id: str | None = Field(default=None, index=True)
     is_premium: bool = False
-    is_verified: bool = False  # Fixed typo from "is_verifided" to "is_verified"
+    is_verified: bool = False
 
 class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=40)
+    invite_code: str | None = Field(default=None)
+    inviter_id: str | None = Field(default=None)
 
 class UserRegister(SQLModel):
     email: EmailStr = Field(max_length=255)
@@ -53,11 +55,6 @@ class UsersPublic(SQLModel):
 
 class UserGoogleLogin(SQLModel):
     email: EmailStr
-
-class UserGoogleRegister(SQLModel):
-    google_id: str
-    email: EmailStr
-    full_name: str | None = Field(default=None, max_length=255)
 
 class RegisterResponse(SQLModel):
     id: str

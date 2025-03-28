@@ -1,5 +1,5 @@
 import os
-from fastapi import APIRouter, UploadFile, HTTPException, File, Form
+from fastapi import APIRouter, UploadFile, HTTPException, File, Form, Depends
 from app.utils import Parser
 from app.models.documents import DeleteDocumentRequest, UploadDocumentResponse, DeleteDocumentResponse
 from pinecone import Pinecone, ServerlessSpec
@@ -10,8 +10,9 @@ import shutil
 import time
 from uuid import uuid4
 from tqdm.auto import tqdm
-from fastapi import HTTPException
 import re
+from app.api.deps import LanguageDep
+from app.core.i18n import get_translation
 
 router = APIRouter()
 
@@ -70,13 +71,14 @@ def clean_text(text):
 
 @router.post("/upload-document/", response_model=UploadDocumentResponse)
 async def upload_document(
+    language: LanguageDep,
     index_name: str = Form(),
     namespace: str = Form(None),
     book_title: str = Form(),
     author: str = Form(),
     source: str = Form(),
     topic: str = Form(),
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
 ):
     try:
         # Normalize index name
@@ -170,7 +172,7 @@ async def upload_document(
 
         # Update the return response to use the new model
         return UploadDocumentResponse(
-            message="Successfully parsed the PDF file and added it to the knowledge base",
+            message=get_translation("document_uploaded_successfully", language),
             document_id=document_id,
             chunk_count=total_chunks
         )
@@ -180,7 +182,10 @@ async def upload_document(
 
 
 @router.delete("/delete-document", response_model=DeleteDocumentResponse)
-async def delete_document(request: DeleteDocumentRequest):
+async def delete_document(
+    request: DeleteDocumentRequest,
+    language: LanguageDep
+):
     """
     Deletes all records in the Pinecone index that match the given document_id.
     """
@@ -189,7 +194,7 @@ async def delete_document(request: DeleteDocumentRequest):
         if not request.document_id:
             raise HTTPException(
                 status_code=400,
-                detail="You must provide a 'document_id' for deletion."
+                detail=get_translation("document_id_required", language)
             )
 
         # Connect to the Pinecone index
@@ -208,11 +213,11 @@ async def delete_document(request: DeleteDocumentRequest):
         if not deleted_ids:
             raise HTTPException(
                 status_code=404,
-                detail=f"No documents found with document_id '{request.document_id}'"
+                detail=get_translation("document_not_found", language)
             )
 
         return DeleteDocumentResponse(
-            message=f"Successfully deleted all chunks for document_id '{request.document_id}'",
+            message=get_translation("document_deleted_successfully", language),
             deleted_ids=deleted_ids
         )
 

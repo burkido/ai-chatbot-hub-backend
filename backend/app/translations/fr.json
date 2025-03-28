@@ -1,0 +1,26 @@
+{
+  "email_verification_subject": "{project_name} - Vérification de l'e-mail",
+  "password_recovery_subject": "{project_name} - Récupération de mot de passe pour l'utilisateur {email}",
+  "new_account_subject": "{project_name} - Nouveau compte pour l'utilisateur {username}",
+  "invitation_subject": "{project_name} - Invitation de {inviter_name}",
+  "test_email_subject": "{project_name} - E-mail de test",
+  
+  "account_inactive": "Votre compte est inactif. Veuillez vérifier votre e-mail pour l'activer.",
+  "account_not_verified": "Compte non vérifié. Un code de vérification a été envoyé à votre adresse e-mail.",
+  "incorrect_credentials": "E-mail ou mot de passe incorrect",
+  "email_successfully_verified": "E-mail vérifié avec succès",
+  "account_already_verified": "Votre compte est déjà vérifié. Vous pouvez vous connecter directement.",
+  "new_otp_sent": "Un nouveau code de vérification a été généré et envoyé à votre adresse e-mail",
+  "password_recovery_sent": "E-mail de récupération de mot de passe envoyé",
+  "password_updated": "Mot de passe mis à jour avec succès",
+  "user_not_found": "Utilisateur non trouvé",
+  "invalid_token": "Token invalide",
+  "user_exists": "L'utilisateur avec cet e-mail existe déjà dans le système.",
+  "inactive_user": "Utilisateur inactif",
+  "verification_expired": "Le code de vérification a expiré",
+  "already_verified": "L'e-mail est déjà vérifié",
+  "invalid_verification_code": "Code de vérification invalide",
+  "no_verification_code": "Aucun code de vérification trouvé pour cet utilisateur",
+  "insufficient_credits": "Vous n'avez pas assez de crédits. Veuillez acheter plus de crédits pour continuer.",
+  "invalid_credit_amount": "Le montant du crédit doit être positif"
+}
