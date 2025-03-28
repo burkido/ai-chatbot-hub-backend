@@ -15,3 +15,5 @@ class ChatResponse(BaseModel):
     content: str
     title: str | None = None
     sources: List[Dict[str, Any]] | None = None  # Add this field to hold metadata
+    remaining_credit: int | None = None  # User's remaining credit after this operation
+    is_credit_sufficient: bool = True  # Flag to indicate if user had enough credits
