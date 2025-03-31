@@ -13,7 +13,6 @@ from app.api.deps import (
 )
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
-from app.models.item import Item
 from app.models.user import User, UserCreate, UserPublic, UserRegister, UserUpdate, UserUpdateMe, UsersPublic, UpdatePassword, CreditAddRequest
 from app.models.token import Message
 from app.models.otp import OTP
@@ -130,8 +129,6 @@ def delete_user_me(session: SessionDep, language: LanguageDep, current_user: Cur
         raise HTTPException(
             status_code=403, detail=get_translation("superuser_delete_not_allowed", language)
         )
-    statement = delete(Item).where(col(Item.owner_id) == current_user.id)
-    session.exec(statement)  # type: ignore
     session.delete(current_user)
     session.commit()
     return Message(message="User deleted successfully")
@@ -236,8 +233,6 @@ def delete_user(
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
         )
-    statement = delete(Item).where(col(Item.owner_id) == user_id)
-    session.exec(statement)  # type: ignore
     session.delete(user)
     session.commit()
     return Message(message="User deleted successfully")

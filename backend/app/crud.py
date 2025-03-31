@@ -7,7 +7,6 @@ from sqlmodel import Session, SQLModel, select
 
 from app.core.security import get_password_hash, verify_password
 from app.models.user import User, UserCreate, UserUpdate
-from app.models.item import Item, ItemCreate
 
 ModelType = TypeVar("ModelType", bound=SQLModel)
 CreateSchemaType = TypeVar("CreateSchemaType", bound=SQLModel)
@@ -80,12 +79,3 @@ def decrease_user_credit(*, session: Session, user: User, amount: int) -> User:
     session.commit()
     session.refresh(user)
     return user
-
-# Item-related CRUD operations
-
-def create_item(*, session: Session, item_in: ItemCreate, owner_id: uuid.UUID) -> Item:
-    db_item = Item.model_validate(item_in, update={"owner_id": owner_id})
-    session.add(db_item)
-    session.commit()
-    session.refresh(db_item)
-    return db_item
