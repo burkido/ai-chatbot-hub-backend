@@ -1,8 +1,8 @@
 import uuid
-from typing import Any
+from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import col, delete, func, select, SQLModel, Field
+from sqlmodel import func, select
 
 from app import crud
 from app.api.deps import (
@@ -13,9 +13,11 @@ from app.api.deps import (
 )
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
-from app.models.user import User, UserCreate, UserPublic, UserRegister, UserUpdate, UserUpdateMe, UsersPublic, UpdatePassword, CreditAddRequest
-from app.models.token import Message
-from app.models.otp import OTP
+from app.models import (
+    User, Message,
+    UserCreate, UserPublic, UserRegister, UserUpdate, 
+    UserUpdateMe, UsersPublic, UpdatePassword, CreditAddRequest, OTP
+)
 from app.utils import generate_new_account_email, generate_email_verification_otp, send_email
 from app.core.i18n import get_translation
 

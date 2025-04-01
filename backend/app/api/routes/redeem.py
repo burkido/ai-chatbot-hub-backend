@@ -1,10 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import select, func
-from app.models.redeem_code import RedeemCode, RedeemCodesPublic
+from app.models.database.redeem_code import RedeemCode
+from app.models.schemas.redeem_code import RedeemCodesPublic
 from typing import Any
 
 from app.api.deps import SessionDep, CurrentUser, LanguageDep, get_current_active_superuser
-from app.models.user import User
+from app.models.database.user import User
 from app.core.i18n import get_translation
 
 router = APIRouter()

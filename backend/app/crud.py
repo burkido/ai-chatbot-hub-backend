@@ -6,7 +6,8 @@ from pydantic import EmailStr
 from sqlmodel import Session, SQLModel, select
 
 from app.core.security import get_password_hash, verify_password
-from app.models.user import User, UserCreate, UserUpdate
+from app.models.database import User
+from app.models.schemas import UserCreate, UserUpdate
 
 ModelType = TypeVar("ModelType", bound=SQLModel)
 CreateSchemaType = TypeVar("CreateSchemaType", bound=SQLModel)

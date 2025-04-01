@@ -1,29 +1,25 @@
 import uuid
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 from sqlmodel import Field, SQLModel
-from pydantic import EmailStr
 
 
-class OTPBase(SQLModel):
-    email: EmailStr = Field(index=True, max_length=255)
+class OTP(SQLModel, table=True):
+    """Database model for OTP (One-Time Password)"""
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    email: str = Field(index=True, max_length=255)
     user_id: str = Field(index=True)
+    code: str = Field(max_length=6)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime
-    is_verified: bool = False
+    is_verified: bool = Field(default=False)
 
     def is_expired(self) -> bool:
         """Check if the OTP has expired"""
         if self.expires_at.tzinfo is None:
             self.expires_at = self.expires_at.replace(tzinfo=timezone.utc)
         return datetime.now(timezone.utc) > self.expires_at
-
-
-class OTP(OTPBase, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    code: str = Field(max_length=6)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
+        
     @classmethod
     def generate(cls, email: str, user_id: str, expiration_minutes: int = 10) -> "OTP":
         """Generate a new OTP for the given email with specified expiration time"""
@@ -36,20 +32,3 @@ class OTP(OTPBase, table=True):
             code=otp_code,
             expires_at=expires_at
         )
-
-
-class OTPCreate(SQLModel):
-    user_id: str
-
-
-class OTPVerify(SQLModel):
-    user_id: str
-    code: str = Field(min_length=6, max_length=6)
-
-
-class OTPResponse(SQLModel):
-    message: str
-    expires_at: datetime
-
-class RenewOTP(SQLModel):
-    user_id: str

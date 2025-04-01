@@ -17,11 +17,16 @@ from app.core import security
 from app.core.config import settings
 from app.core.i18n import get_translation
 from app.core.security import get_password_hash
-from app.models.token import Message, Token, RefreshTokenRequest, NewPassword
-from app.models.user import UserPublic, UserCreate, UserGoogleLogin, RegisterResponse
-from app.models.otp import OTP, OTPVerify, OTPResponse, RenewOTP
-from app.models.invitation import Invitation, InviteCreate, InviteResponse, InviteCheck
-
+# Updated imports to use the new model structure
+from app.models import (
+    # Database models
+    User, OTP, Invitation,
+    # Schema models
+    UserPublic, UserCreate, UserGoogleLogin, RegisterResponse,
+    Message, Token, RefreshTokenRequest, NewPassword,
+    OTPVerify, OTPResponse, RenewOTP,
+    InviteCreate, InviteResponse, InviteCheck
+)
 from app.utils import (
     generate_password_reset_token,
     generate_reset_password_email,

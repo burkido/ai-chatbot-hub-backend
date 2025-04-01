@@ -1,59 +1,78 @@
-import uuid
-from typing import Optional
+from typing import List
 from pydantic import EmailStr
 from sqlmodel import Field, SQLModel
+import uuid
+
 
 class UserBase(SQLModel):
-    email: EmailStr = Field(unique=True, index=True, max_length=255)
+    """Base schema for user data"""
+    email: EmailStr = Field(max_length=255)
     is_active: bool = True
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
     credit: int = Field(default=10, ge=0)
-    google_id: str | None = Field(default=None, index=True)
     is_premium: bool = False
     is_verified: bool = False
 
+
 class UserCreate(UserBase):
+    """Schema for creating a new user"""
     password: str = Field(min_length=8, max_length=40)
     invite_code: str | None = Field(default=None)
     inviter_id: str | None = Field(default=None)
 
+
 class UserRegister(SQLModel):
+    """Schema for user registration"""
     email: EmailStr = Field(max_length=255)
     password: str = Field(min_length=8, max_length=40)
     full_name: str | None = Field(default=None, max_length=255)
 
+
 class UserUpdate(UserBase):
-    email: EmailStr | None = Field(default=None, max_length=255)  # type: ignore
+    """Schema for updating user data"""
+    email: EmailStr | None = Field(default=None, max_length=255)
     password: str | None = Field(default=None, min_length=8, max_length=40)
 
+
 class UserUpdateMe(SQLModel):
+    """Schema for users updating their own data"""
     full_name: str | None = Field(default=None, max_length=255)
     email: EmailStr | None = Field(default=None, max_length=255)
 
+
 class UpdatePassword(SQLModel):
+    """Schema for password update"""
     current_password: str = Field(min_length=8, max_length=40)
     new_password: str = Field(min_length=8, max_length=40)
 
+
 class UpdateCredit(SQLModel):
+    """Schema for credit update"""
     credit: int = Field(ge=0)
 
-class User(UserBase, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    hashed_password: Optional[str] = None
 
 class UserPublic(UserBase):
+    """Schema for public user data"""
     id: uuid.UUID
 
+
 class UsersPublic(SQLModel):
-    data: list[UserPublic]
+    """Schema for list of public user data"""
+    data: List[UserPublic]
     count: int
 
+
 class UserGoogleLogin(SQLModel):
+    """Schema for Google login"""
     email: EmailStr
 
+
 class RegisterResponse(SQLModel):
+    """Schema for registration response"""
     id: str
 
+
 class CreditAddRequest(SQLModel):
+    """Schema for credit addition request"""
     amount: int = Field(gt=0, lt=10)

@@ -4,8 +4,7 @@ from fastapi import APIRouter, HTTPException, Depends
 
 from app import crud
 from app.api.deps import SessionDep, CurrentUser, LanguageDep
-from app.models.user import User
-from app.models.chat import ChatMessage, ChatRequest, ChatResponse
+from app.models import User, ChatMessage, ChatRequest, ChatResponse
 from app.core.i18n import get_translation
 
 from typing import List, Dict, Any

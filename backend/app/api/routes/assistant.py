@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlmodel import select
-from app.models.assistant import Assistant
+from app.models.database.assistant import Assistant
 from app.api.deps import SessionDep, get_current_active_superuser, CurrentUser
 
 router = APIRouter()
