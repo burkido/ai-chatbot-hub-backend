@@ -18,6 +18,7 @@ from app.models.user import User, UserBase, UserCreate, UserRegister, UserUpdate
 from app.models.otp import OTP  # noqa
 from app.models.redeem_code import RedeemCode  # noqa
 from app.models.invitation import Invitation  # noqa
+from app.models.assistant import Assistant  # noqa
 from app.core.config import settings  # noqa
 from sqlmodel import SQLModel
 

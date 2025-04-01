@@ -24,7 +24,6 @@ def get_db() -> Generator[Session, None, None]:
     with Session(engine) as session:
         yield session
 
-# Add this dependency function
 def get_language(request: Request) -> str:
     """
     Dependency to extract the preferred language from the request.

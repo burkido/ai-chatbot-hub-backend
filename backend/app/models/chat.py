@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Dict, Any
+from sqlmodel import SQLModel, Field
 
 class ChatMessage(BaseModel):
     role: str  # "system", "user", or "assistant"
