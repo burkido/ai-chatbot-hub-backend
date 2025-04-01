@@ -1,7 +1,7 @@
 import os
 from fastapi import APIRouter, UploadFile, HTTPException, File, Form, Depends
 from app.utils import Parser
-from app.models.documents import DeleteDocumentRequest, UploadDocumentResponse, DeleteDocumentResponse
+from app.models.schemas.document import DeleteDocumentRequest, UploadDocumentResponse, DeleteDocumentResponse
 from pinecone import Pinecone, ServerlessSpec
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter

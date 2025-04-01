@@ -14,16 +14,15 @@ fileConfig(config.config_file_name)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from app.models.user import User, UserBase, UserCreate, UserRegister, UserUpdate, UserUpdateMe, UpdatePassword, UpdateCredit, UserPublic, UsersPublic  # noqa
-from app.models.item import Item, ItemBase, ItemCreate, ItemUpdate, ItemPublic, ItemsPublic  # noqa
-from app.models.otp import OTP  # noqa
-from app.models.redeem_code import RedeemCode  # noqa
-from app.models.invitation import Invitation  # noqa
+from app.models.database import User, Assistant  # noqa
+from app.models.database import OTP  # noqa
+from app.models.database import Invitation  # noqa
+# Note: RedeemCode is missing from our reorganization - we need to migrate it
+from app.models.database.redeem_code import RedeemCode  # noqa
 from app.core.config import settings  # noqa
 from sqlmodel import SQLModel
 
 # Combine metadata objects
-#target_metadata = [User.metadata, Item.metadata]
 target_metadata = SQLModel.metadata
 
 # other values from the config, defined by the needs of env.py,

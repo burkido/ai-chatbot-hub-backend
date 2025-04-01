@@ -12,8 +12,8 @@ from fastapi import Request
 from app.core import security
 from app.core.config import settings
 from app.core.db import engine
-from app.models.token import TokenPayload
-from app.models.user import User
+from app.models.schemas.token import TokenPayload
+from app.models.database.user import User
 from app.core.i18n import get_language_from_request, get_translation
 
 reusable_oauth2 = OAuth2PasswordBearer(
@@ -24,7 +24,6 @@ def get_db() -> Generator[Session, None, None]:
     with Session(engine) as session:
         yield session
 
-# Add this dependency function
 def get_language(request: Request) -> str:
     """
     Dependency to extract the preferred language from the request.

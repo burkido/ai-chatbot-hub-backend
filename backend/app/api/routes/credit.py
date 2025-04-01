@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
 from typing import Any
-
+from fastapi import HTTPException
+from sqlmodel import Session
+from fastapi import APIRouter, status
 from app.api.deps import CurrentUser, SessionDep, LanguageDep
-from app.models.credit import CreditAdd, CreditResponse
+# Updated imports to use the specific directory paths
+from app.models.schemas.credit import CreditAdd, CreditResponse
 from app.core.i18n import get_translation
 
 router = APIRouter()
@@ -13,7 +15,7 @@ def add_credit(
     session: SessionDep,
     credit_in: CreditAdd,
     current_user: CurrentUser,
-    language: LanguageDep  # Added language dependency
+    language: LanguageDep
 ) -> Any:
     """
     Add credit to current user's account.

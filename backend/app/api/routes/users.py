@@ -2,7 +2,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import col, delete, func, select
+from sqlmodel import func, select
 
 from app import crud
 from app.api.deps import (
@@ -13,15 +13,18 @@ from app.api.deps import (
 )
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
-from app.models.item import Item
-from app.models.user import User, UserCreate, UserPublic, UserRegister, UserUpdate, UserUpdateMe, UsersPublic, UpdatePassword
-from app.models.token import Message
-from app.models.otp import OTP
+# Updated imports to use specific directory paths
+from app.models.database.user import User
+from app.models.database.otp import OTP
+from app.models.schemas.message import Message
+from app.models.schemas.user import (
+    UserCreate, UserPublic, UserRegister, UserUpdate, 
+    UserUpdateMe, UsersPublic, UpdatePassword, CreditAddRequest
+)
 from app.utils import generate_new_account_email, generate_email_verification_otp, send_email
 from app.core.i18n import get_translation
 
 router = APIRouter()
-
 
 @router.get(
     "/",
@@ -131,8 +134,6 @@ def delete_user_me(session: SessionDep, language: LanguageDep, current_user: Cur
         raise HTTPException(
             status_code=403, detail=get_translation("superuser_delete_not_allowed", language)
         )
-    statement = delete(Item).where(col(Item.owner_id) == current_user.id)
-    session.exec(statement)  # type: ignore
     session.delete(current_user)
     session.commit()
     return Message(message="User deleted successfully")
@@ -237,8 +238,23 @@ def delete_user(
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
         )
-    statement = delete(Item).where(col(Item.owner_id) == user_id)
-    session.exec(statement)  # type: ignore
     session.delete(user)
     session.commit()
     return Message(message="User deleted successfully")
+
+@router.post("/add-credit/ad", response_model=UserPublic)
+def add_credit_from_ad(
+    *, session: SessionDep, current_user: CurrentUser, credit_request: CreditAddRequest
+) -> Any:
+    """
+    Add credits to the current user after watching an ad.
+    """
+    # Add the specified amount of credits
+    current_user.credit += credit_request.amount
+    
+    # Save changes to database
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    
+    return current_user

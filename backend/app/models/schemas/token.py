@@ -1,8 +1,5 @@
 from sqlmodel import SQLModel, Field
 
-class Message(SQLModel):
-    message: str
-
 class Token(SQLModel):
     access_token: str
     refresh_token: str
