@@ -3,7 +3,8 @@ from fastapi import HTTPException
 from sqlmodel import Session
 from fastapi import APIRouter, status
 from app.api.deps import CurrentUser, SessionDep, LanguageDep
-from app.models import CreditAdd, CreditResponse
+# Updated imports to use the specific directory paths
+from app.models.schemas.credit import CreditAdd, CreditResponse
 from app.core.i18n import get_translation
 
 router = APIRouter()

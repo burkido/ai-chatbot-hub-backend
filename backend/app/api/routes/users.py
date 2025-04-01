@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, List
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import func, select
@@ -13,10 +13,13 @@ from app.api.deps import (
 )
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
-from app.models import (
-    User, Message,
+# Updated imports to use specific directory paths
+from app.models.database.user import User
+from app.models.database.otp import OTP
+from app.models.schemas.message import Message
+from app.models.schemas.user import (
     UserCreate, UserPublic, UserRegister, UserUpdate, 
-    UserUpdateMe, UsersPublic, UpdatePassword, CreditAddRequest, OTP
+    UserUpdateMe, UsersPublic, UpdatePassword, CreditAddRequest
 )
 from app.utils import generate_new_account_email, generate_email_verification_otp, send_email
 from app.core.i18n import get_translation
