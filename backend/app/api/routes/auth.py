@@ -240,12 +240,13 @@ def refresh_access_token(
 
     return Token(
         access_token=security.create_access_token(
-            user.id, expires_delta=access_token_expires
+            str(user.id), expires_delta=access_token_expires
         ),
         refresh_token=security.create_refresh_token(
-            user.id, expires_delta=refresh_token_expires
+            str(user.id), expires_delta=refresh_token_expires
         ),
-        user_id=user.id,
+        user_id=str(user.id),
+        is_premium=user.is_premium,
         remaining_credit=user.credit
     )
 

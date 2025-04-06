@@ -43,7 +43,7 @@ def get_current_user(session: SessionDep, language: LanguageDep, token: TokenDep
     except (InvalidTokenError, ValidationError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=get_translation("token_invalid", language),
+            detail=get_translation("invalid_token", language),
         )
     user = session.get(User, token_data.sub)
     if not user:

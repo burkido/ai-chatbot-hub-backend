@@ -17,16 +17,13 @@ from langchain_openai import OpenAIEmbeddings
 
 router = APIRouter()
 
-# it can adapt for managing multiple indexes
 index_name = "assistant-ai"
-#index_name = "canopy--ilmihal"
 
-# Dependency for ChatOpenAI instance
 def get_chat_openai() -> ChatOpenAI:
     return ChatOpenAI(
         openai_api_key=os.getenv("OPENAI_API_KEY"),
         temperature=0.7,
-        model="gpt-4o"
+        model="gpt-4o-mini"
     )
 
 def get_vectorstore() -> PineconeVectorStore:
