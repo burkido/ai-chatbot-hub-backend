@@ -34,7 +34,7 @@ def chat_endpoint(
     chat_request: ChatRequest,
     session: SessionDep,
     current_user: CurrentUser,
-    language: LanguageDep,  # Added language dependency
+    language: LanguageDep,
     chat_model: ChatOpenAI = Depends(get_chat_openai),
     vectorstore: PineconeVectorStore = Depends(get_vectorstore)
 ) -> ChatResponse:
