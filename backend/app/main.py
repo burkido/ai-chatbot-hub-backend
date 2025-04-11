@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
+from fastapi.security import HTTPBearer
 
 from app.api.main import api_router
 from app.core.config import settings
@@ -15,6 +16,9 @@ def custom_generate_unique_id(route: APIRoute) -> str:
 
 if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
     sentry_sdk.init(dsn=str(settings.SENTRY_DSN), enable_tracing=True)
+
+# Create security scheme for Swagger UI to allow bearer token input
+security_scheme = HTTPBearer(auto_error=False)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -34,7 +38,7 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
     )
 
-# Custom OpenAPI schema to include Accept-Language and X-Application-Key header parameters
+# Custom OpenAPI schema to include Accept-Language header parameter
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
@@ -68,21 +72,18 @@ def custom_openapi():
         "description": language_description,
     }
     
-    # Add global X-Application-Key parameter
-    openapi_schema["components"]["parameters"]["X-Application-Key"] = {
-        "name": "X-Application-Key",
-        "in": "header",
-        "required": True,
-        "schema": {
-            "title": "X-Application-Key",
-            "type": "string",
-        },
-        "description": "Application API key for authentication",
+    # Add Bearer token security scheme
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT"
+        }
     }
     
-    # Apply these parameters to all paths
+    # Apply language parameter to all paths and add security
     if "paths" in openapi_schema:
-        for path in openapi_schema["paths"].values():
+        for path_key, path in openapi_schema["paths"].items():
             for operation in path.values():
                 if "parameters" not in operation:
                     operation["parameters"] = []
@@ -91,9 +92,9 @@ def custom_openapi():
                     "$ref": "#/components/parameters/Accept-Language"
                 })
                 
-                operation["parameters"].append({
-                    "$ref": "#/components/parameters/X-Application-Key"
-                })
+                # Add security requirement to all operations except login endpoints
+                if not path_key.endswith("/login") and not path_key.endswith("/open-api"):
+                    operation["security"] = [{"BearerAuth": []}]
     
     app.openapi_schema = openapi_schema
     return app.openapi_schema
