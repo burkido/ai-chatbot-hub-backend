@@ -13,6 +13,7 @@ class UserBase(SQLModel):
     credit: int = Field(default=10, ge=0)
     is_premium: bool = False
     is_verified: bool = False
+    application_id: uuid.UUID
 
 
 class UserCreate(UserBase):
@@ -27,6 +28,7 @@ class UserRegister(SQLModel):
     email: EmailStr = Field(max_length=255)
     password: str = Field(min_length=8, max_length=40)
     full_name: str | None = Field(default=None, max_length=255)
+    application_id: uuid.UUID
 
 
 class UserUpdate(UserBase):
@@ -66,6 +68,7 @@ class UsersPublic(SQLModel):
 class UserGoogleLogin(SQLModel):
     """Schema for Google login"""
     email: EmailStr
+    application_id: uuid.UUID
 
 
 class RegisterResponse(SQLModel):

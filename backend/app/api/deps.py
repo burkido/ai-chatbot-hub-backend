@@ -1,12 +1,13 @@
 from collections.abc import Generator
-from typing import Annotated
+from typing import Annotated, Optional
+import uuid
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
-from sqlmodel import Session
+from sqlmodel import Session, select
 from fastapi import Request
 
 from app.core import security
@@ -14,6 +15,7 @@ from app.core.config import settings
 from app.core.db import engine
 from app.models.schemas.token import TokenPayload
 from app.models.database.user import User
+from app.models.database.application import Application
 from app.core.i18n import get_language_from_request, get_translation
 
 reusable_oauth2 = OAuth2PasswordBearer(
@@ -31,10 +33,45 @@ def get_language(request: Request) -> str:
     return get_language_from_request(request)
 
 SessionDep = Annotated[Session, Depends(get_db)]
+
+def get_application_by_api_key(
+    session: SessionDep, 
+    x_application_key: Optional[str] = Header(None)
+) -> Application:
+    """
+    Verify the application API key and return the corresponding application.
+    """
+    if not x_application_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="X-Application-Key header is required",
+        )
+    
+    application = session.exec(
+        select(Application).where(
+            Application.api_key == x_application_key,
+            Application.is_active == True
+        )
+    ).first()
+    
+    if not application:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or inactive application API key",
+        )
+    
+    return application
+
 TokenDep = Annotated[str, Depends(reusable_oauth2)]
 LanguageDep = Annotated[str, Depends(get_language)]
+ApplicationDep = Annotated[Application, Depends(get_application_by_api_key)]
 
-def get_current_user(session: SessionDep, language: LanguageDep, token: TokenDep) -> User:
+def get_current_user(
+    session: SessionDep,
+    language: LanguageDep,
+    token: TokenDep,
+    current_application: ApplicationDep
+) -> User:
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
@@ -45,11 +82,33 @@ def get_current_user(session: SessionDep, language: LanguageDep, token: TokenDep
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=get_translation("invalid_token", language),
         )
-    user = session.get(User, token_data.sub)
+    
+    # Validate that the token was issued for the current application
+    if not token_data.app or str(current_application.id) != token_data.app:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=get_translation("invalid_token_for_application", language),
+        )
+    
+    user = session.exec(
+        select(User).where(
+            User.id == token_data.sub,
+            User.application_id == current_application.id
+        )
+    ).first()
+    
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(
+            status_code=404,
+            detail=get_translation("user_not_found", language),
+        )
+    
     if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(
+            status_code=400,
+            detail=get_translation("inactive_user", language),
+        )
+    
     return user
 
 
@@ -59,6 +118,7 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 def get_current_active_superuser(current_user: CurrentUser) -> User:
     if not current_user.is_superuser:
         raise HTTPException(
-            status_code=403, detail="The user doesn't have enough privileges"
+            status_code=403, 
+            detail="The user doesn't have enough privileges"
         )
     return current_user
