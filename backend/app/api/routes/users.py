@@ -167,7 +167,7 @@ def register_user(session: SessionDep, language: LanguageDep, application: Appli
     email_data = generate_email_verification_otp(
         email_to=user_in.email, 
         otp=verification.code,
-        deeplink=f"{application.deeplink_base_url}/verify/{verification.code}",
+        deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
         language=language
     )
     send_email(

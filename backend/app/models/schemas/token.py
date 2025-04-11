@@ -12,7 +12,6 @@ class Token(SQLModel):
 
 class RefreshTokenRequest(SQLModel):
     refresh_token: str
-    application_id: uuid.UUID
 
 class TokenPayload(SQLModel):
     sub: str | None = None

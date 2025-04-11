@@ -100,7 +100,7 @@ def login(
         email_data = generate_email_verification_otp(
             email_to=form_data.username, 
             otp=verification.code,
-            deeplink=f"{application.deeplink_base_url}/verify/{verification.code}",
+            deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
             language=language  
         )
         send_email(
@@ -175,7 +175,7 @@ def google_login(
         email_data = generate_email_verification_otp(
             email_to=user_google.email, 
             otp=verification.code,
-            deeplink=f"{application.deeplink_base_url}/verify/{verification.code}",
+            deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
             language=language  
         )
         send_email(
@@ -217,7 +217,8 @@ def refresh_access_token(
     application: ApplicationDep
 ) -> Token:
     """
-    Refresh access token
+    Refresh access token using refresh token.
+    Application is identified by the X-Application-Key header automatically.
     """
     try:
         payload = jwt.decode(token_request.refresh_token, settings.SECRET_KEY, algorithms=['HS256'])
@@ -282,7 +283,7 @@ def refresh_access_token(
         email_data = generate_email_verification_otp(
             email_to=user.email, 
             otp=verification.code,
-            deeplink=f"{application.deeplink_base_url}/verify/{verification.code}",
+            deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
             language=language  
         )
         send_email(
@@ -407,7 +408,7 @@ def register(
     email_data = generate_email_verification_otp(
         email_to=user_create.email, 
         otp=verification.code,
-        deeplink=f"{application.deeplink_base_url}/verify/{verification.code}",
+        deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
         language=language  
     )
     send_email(
@@ -542,7 +543,7 @@ def verify_email_resend(
     email_data = generate_email_verification_otp(
         email_to=email, 
         otp=new_verification.code,
-        deeplink=f"{application.deeplink_base_url}/verify/{new_verification.code}",
+        deeplink=f"{application.app_deeplink_url}/verify/{new_verification.code}",
         language=language  
     )
     send_email(
@@ -584,7 +585,7 @@ def recover_password(
         email_to=email, 
         email=email, 
         token=password_reset_token,
-        deeplink=f"{application.deeplink_base_url}/reset-password/{password_reset_token}",
+        deeplink=f"{application.app_deeplink_url}/reset-password/{password_reset_token}",
         language=language  
     )
     
@@ -677,7 +678,7 @@ def recover_password_html_content(
         email_to=email, 
         email=email, 
         token=password_reset_token,
-        deeplink=f"{application.deeplink_base_url}/reset-password/{password_reset_token}",
+        deeplink=f"{application.app_deeplink_url}/reset-password/{password_reset_token}",
         language=language
     )
 
@@ -738,7 +739,7 @@ def invite_friend(
     session.refresh(invitation)
     
     # Generate the deeplink with the invitation code
-    deeplink = f"{application.deeplink_base_url}/register/{current_user.id}/{invitation.code}"
+    deeplink = f"{application.app_deeplink_url}/register/{current_user.id}/{invitation.code}"
     
     # Send invitation email with localized subject
     email_data = generate_invite_friend_email(
