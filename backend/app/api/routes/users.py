@@ -10,12 +10,13 @@ from app.api.deps import (
     SessionDep,
     LanguageDep,
     get_current_active_superuser,
+    ApplicationDep,
 )
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
 # Updated imports to use specific directory paths
 from app.models.database.user import User
-from app.models.database.otp import OTP
+from app.models.database.verification import Verification
 from app.models.schemas.message import Message
 from app.models.schemas.user import (
     UserCreate, UserPublic, UserRegister, UserUpdate, 
@@ -140,11 +141,11 @@ def delete_user_me(session: SessionDep, language: LanguageDep, current_user: Cur
 
 
 @router.post("/signup", response_model=UserPublic)
-def register_user(session: SessionDep, language: LanguageDep, user_in: UserRegister) -> Any:
+def register_user(session: SessionDep, language: LanguageDep, application: ApplicationDep, user_in: UserRegister) -> Any:
     """
     Create new user without the need to be logged in.
     """
-    user = crud.get_user_by_email(session=session, email=user_in.email)
+    user = crud.get_user_by_email(session=session, email=user_in.email, application_id=application.id)
     if user:
         raise HTTPException(
             status_code=400,
@@ -153,16 +154,21 @@ def register_user(session: SessionDep, language: LanguageDep, user_in: UserRegis
     user_create = UserCreate.model_validate(user_in)
     user = crud.create_user(session=session, user_create=user_create)
     
-    # Create and send OTP for email verification
-    otp = OTP.generate(email=user_in.email)
-    session.add(otp)
+    # Create and send Verification for email verification
+    verification = Verification.generate(
+        application_id=application.id,
+        email=user_in.email, 
+        user_id=str(user.id)
+    )
+    session.add(verification)
     session.commit()
     
     # Send verification email
     email_data = generate_email_verification_otp(
         email_to=user_in.email, 
-        otp=otp.code,
-        deeplink=f"https://assistlyai.space/doctor/verify?otp={otp.code}"
+        otp=verification.code,
+        deeplink=f"{application.deeplink_base_url}/verify/{verification.code}",
+        language=language
     )
     send_email(
         email_to=user_in.email,

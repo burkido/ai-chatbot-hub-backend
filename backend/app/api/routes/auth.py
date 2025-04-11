@@ -19,14 +19,14 @@ from app.core.i18n import get_translation
 from app.core.security import get_password_hash
 # Updated imports to use the new model structure
 from app.models.database.user import User
-from app.models.database.otp import OTP
+from app.models.database.verification import Verification
 from app.models.database.invitation import Invitation
 from app.models.database.application import Application
 
 from app.models.schemas.user import UserPublic, UserCreate, UserGoogleLogin, RegisterResponse
 from app.models.schemas.token import Token, RefreshTokenRequest, NewPassword
 from app.models.schemas.message import Message
-from app.models.schemas.otp import OTPVerify, OTPResponse, RenewOTP
+from app.models.schemas.verification import VerificationVerify, VerificationResponse, RenewVerification
 from app.models.schemas.invitation import InviteCreate, InviteResponse, InviteCheck
 
 from app.utils import (
@@ -71,36 +71,36 @@ def login(
         )
 
     if not user.is_verified:
-        # Check if there's an existing non-expired OTP
-        statement = select(OTP).where(
-            OTP.user_id == str(user.id),
-            OTP.application_id == application.id
-        ).order_by(OTP.created_at.desc())
+        # Check if there's an existing non-expired Verification
+        statement = select(Verification).where(
+            Verification.user_id == str(user.id),
+            Verification.application_id == application.id
+        ).order_by(Verification.created_at.desc())
         
-        existing_otp = session.exec(statement).first()
+        existing_verification = session.exec(statement).first()
         
-        # Handle OTP expiration
-        if existing_otp and not existing_otp.is_expired():
-            otp = existing_otp
+        # Handle Verification expiration
+        if existing_verification and not existing_verification.is_expired():
+            verification = existing_verification
         else:
-            if existing_otp:
-                session.delete(existing_otp)
+            if existing_verification:
+                session.delete(existing_verification)
                 session.commit()
                 
-            otp = OTP.generate(
+            verification = Verification.generate(
                 application_id=application.id,
                 email=form_data.username, 
                 user_id=str(user.id)
             )
-            session.add(otp)
+            session.add(verification)
             session.commit()
-            session.refresh(otp)
+            session.refresh(verification)
 
         # Send verification email with localized subject
         email_data = generate_email_verification_otp(
             email_to=form_data.username, 
-            otp=otp.code,
-            deeplink=f"{application.deeplink_base_url}/verify/{otp.code}",
+            otp=verification.code,
+            deeplink=f"{application.deeplink_base_url}/verify/{verification.code}",
             language=language  
         )
         send_email(
@@ -162,20 +162,20 @@ def google_login(
             detail=get_translation("inactive_user", language)  
         )
     elif not user.is_verified:
-        # Create and send a new OTP for verification since login failed due to unverified account
-        otp = OTP.generate(
+        # Create and send a new Verification for verification since login failed due to unverified account
+        verification = Verification.generate(
             application_id=application.id,
             email=user_google.email, 
             user_id=str(user.id)
         )
-        session.add(otp)
+        session.add(verification)
         session.commit()
         
         # Send verification email with localized subject
         email_data = generate_email_verification_otp(
             email_to=user_google.email, 
-            otp=otp.code,
-            deeplink=f"{application.deeplink_base_url}/verify/{otp.code}",
+            otp=verification.code,
+            deeplink=f"{application.deeplink_base_url}/verify/{verification.code}",
             language=language  
         )
         send_email(
@@ -269,20 +269,20 @@ def refresh_access_token(
             detail=get_translation("inactive_user", language)
         )
     elif not user.is_verified:
-        # Create and send a new OTP for verification since token refresh failed due to unverified account
-        otp = OTP.generate(
+        # Create and send a new Verification for verification since token refresh failed due to unverified account
+        verification = Verification.generate(
             application_id=application.id,
             email=user.email, 
             user_id=str(user.id)
         )
-        session.add(otp)
+        session.add(verification)
         session.commit()
         
         # Send verification email with localized subject
         email_data = generate_email_verification_otp(
             email_to=user.email, 
-            otp=otp.code,
-            deeplink=f"{application.deeplink_base_url}/verify/{otp.code}",
+            otp=verification.code,
+            deeplink=f"{application.deeplink_base_url}/verify/{verification.code}",
             language=language  
         )
         send_email(
@@ -394,20 +394,20 @@ def register(
             inviter_user.credit += application.default_user_credit
             session.add(inviter_user)
     
-    # Create and send OTP for email verification
-    otp = OTP.generate(
+    # Create and send Verification for email verification
+    verification = Verification.generate(
         application_id=application.id,
         email=user_create.email, 
         user_id=str(new_user.id)
     )
-    session.add(otp)
+    session.add(verification)
     session.commit()
     
     # Send verification email
     email_data = generate_email_verification_otp(
         email_to=user_create.email, 
-        otp=otp.code,
-        deeplink=f"{application.deeplink_base_url}/verify/{otp.code}",
+        otp=verification.code,
+        deeplink=f"{application.deeplink_base_url}/verify/{verification.code}",
         language=language  
     )
     send_email(
@@ -418,15 +418,15 @@ def register(
     
     return RegisterResponse(id=str(new_user.id))
 
-@router.post("/verify-email", response_model=OTPResponse)
+@router.post("/verify-email", response_model=VerificationResponse)
 def verify_email(
     session: SessionDep, 
-    verification_data: OTPVerify,
+    verification_data: VerificationVerify,
     language: LanguageDep,
     application: ApplicationDep
-) -> OTPResponse:
+) -> VerificationResponse:
     """
-    Verify email using OTP with localized responses
+    Verify email using Verification with localized responses
     """
     # Get user first
     user = crud.get_user_by_id(
@@ -441,42 +441,42 @@ def verify_email(
             detail=get_translation("user_not_found", language)
         )
     
-    # Get the latest OTP for this user and application
+    # Get the latest Verification for this user and application
     statement = (
-        select(OTP)
-        .where(OTP.user_id == verification_data.user_id)
-        .where(OTP.application_id == application.id)
-        .order_by(OTP.created_at.desc())
+        select(Verification)
+        .where(Verification.user_id == verification_data.user_id)
+        .where(Verification.application_id == application.id)
+        .order_by(Verification.created_at.desc())
     )
-    otp_record = session.exec(statement).first()
+    verification_record = session.exec(statement).first()
     
-    if not otp_record:
+    if not verification_record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
             detail=get_translation("no_verification_code", language)
         )
 
-    if otp_record.is_expired():
+    if verification_record.is_expired():
         raise HTTPException(
             status_code=status.HTTP_410_GONE,
             detail=get_translation("verification_expired", language)  
         )
 
-    if otp_record.is_verified:
+    if verification_record.is_verified:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=get_translation("already_verified", language)  
         )
 
-    if otp_record.code != verification_data.code:
+    if verification_record.code != verification_data.code:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=get_translation("invalid_verification_code", language)  
         )
     
-    # Mark OTP as verified
-    otp_record.is_verified = True
-    session.add(otp_record)
+    # Mark Verification as verified
+    verification_record.is_verified = True
+    session.add(verification_record)
     
     # Mark user as verified
     user.is_verified = True
@@ -485,20 +485,20 @@ def verify_email(
     # Ensure changes are committed to the database
     session.commit()
     
-    return OTPResponse(
+    return VerificationResponse(
         message=get_translation("email_successfully_verified", language),
-        expires_at=otp_record.expires_at
+        expires_at=verification_record.expires_at
     )
 
 @router.post("/verify-email-resend")
 def verify_email_resend(
     session: SessionDep, 
-    renew: RenewOTP,
+    renew: RenewVerification,
     language: LanguageDep,
     application: ApplicationDep
 ) -> Message:
     """
-    Renew OTP code, delete the previous one, generate a new one, and send an email to the user
+    Renew Verification code, delete the previous one, generate a new one, and send an email to the user
     """
     # Find user by ID and application
     user = crud.get_user_by_id(
@@ -516,33 +516,33 @@ def verify_email_resend(
     # Get user's email from their record
     email = user.email
     
-    # If user is already verified, don't create a new OTP
+    # If user is already verified, don't create a new Verification
     if user.is_verified:
         return Message(message=get_translation("account_already_verified", language))
     
-    # Delete previous OTPs for this user and application
-    statement = select(OTP).where(
-        OTP.user_id == renew.user_id,
-        OTP.application_id == application.id
+    # Delete previous Verifications for this user and application
+    statement = select(Verification).where(
+        Verification.user_id == renew.user_id,
+        Verification.application_id == application.id
     )
-    otps = session.exec(statement).all()
-    for otp in otps:
-        session.delete(otp)
+    verifications = session.exec(statement).all()
+    for verification in verifications:
+        session.delete(verification)
     
-    # Generate new OTP
-    new_otp = OTP.generate(
+    # Generate new Verification
+    new_verification = Verification.generate(
         application_id=application.id,
         email=email, 
         user_id=renew.user_id
     )
-    session.add(new_otp)
+    session.add(new_verification)
     session.commit()
     
     # Send verification email with localized subject
     email_data = generate_email_verification_otp(
         email_to=email, 
-        otp=new_otp.code,
-        deeplink=f"{application.deeplink_base_url}/verify/{new_otp.code}",
+        otp=new_verification.code,
+        deeplink=f"{application.deeplink_base_url}/verify/{new_verification.code}",
         language=language  
     )
     send_email(
@@ -551,7 +551,7 @@ def verify_email_resend(
         html_content=email_data.html_content,
     )
     
-    return Message(message=get_translation("new_otp_sent", language))
+    return Message(message=get_translation("new_verification_sent", language))
 
 @router.post("/password-recovery/{user_id}")
 def recover_password(

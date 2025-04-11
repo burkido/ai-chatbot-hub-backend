@@ -1,12 +1,12 @@
 from .user import User
-from .otp import OTP
+from .verification import Verification
 from .invitation import Invitation
 from .assistant import Assistant
 from .redeem_code import RedeemCode
 
 __all__ = [
     "User",
-    "OTP",
+    "Verification",
     "Invitation",
     "Assistant",
     "RedeemCode",

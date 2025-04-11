@@ -15,7 +15,7 @@ fileConfig(config.config_file_name)
 # add your model's MetaData object here
 # for 'autogenerate' support
 from app.models.database import User, Assistant  # noqa
-from app.models.database import OTP  # noqa
+from app.models.database import Verification  # noqa
 from app.models.database import Invitation  # noqa
 # Note: RedeemCode is missing from our reorganization - we need to migrate it
 from app.models.database.redeem_code import RedeemCode  # noqa
