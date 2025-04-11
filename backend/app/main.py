@@ -34,7 +34,7 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
     )
 
-# Custom OpenAPI schema to include Accept-Language header parameter
+# Custom OpenAPI schema to include Accept-Language and X-Application-Key header parameters
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
@@ -68,7 +68,19 @@ def custom_openapi():
         "description": language_description,
     }
     
-    # Apply this parameter to all paths
+    # Add global X-Application-Key parameter
+    openapi_schema["components"]["parameters"]["X-Application-Key"] = {
+        "name": "X-Application-Key",
+        "in": "header",
+        "required": True,
+        "schema": {
+            "title": "X-Application-Key",
+            "type": "string",
+        },
+        "description": "Application API key for authentication",
+    }
+    
+    # Apply these parameters to all paths
     if "paths" in openapi_schema:
         for path in openapi_schema["paths"].values():
             for operation in path.values():
@@ -77,6 +89,10 @@ def custom_openapi():
                 
                 operation["parameters"].append({
                     "$ref": "#/components/parameters/Accept-Language"
+                })
+                
+                operation["parameters"].append({
+                    "$ref": "#/components/parameters/X-Application-Key"
                 })
     
     app.openapi_schema = openapi_schema
