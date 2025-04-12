@@ -32,15 +32,47 @@ router = APIRouter()
     dependencies=[Depends(get_current_active_superuser)],
     response_model=UsersPublic,
 )
-def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
+def read_users(
+    session: SessionDep, 
+    skip: int = 0, 
+    limit: int = 100, 
+    api_key: str = None
+) -> Any:
     """
     Retrieve users.
     """
+    # Get application by API key if provided
+    application_id = None
+    if api_key:
+        from app.models.database.application import Application
+        from sqlmodel import select
+        
+        # Find the application with the given API key
+        statement = select(Application).where(Application.api_key == api_key)
+        application = session.exec(statement).first()
+        
+        if not application:
+            # If no application found with this API key, return empty result
+            return UsersPublic(data=[], count=0)
+        
+        application_id = application.id
 
-    count_statement = select(func.count()).select_from(User)
+    # Get count with application_id filter if provided
+    if application_id:
+        count_statement = select(func.count()).select_from(
+            select(User).where(User.application_id == application_id).subquery()
+        )
+    else:
+        count_statement = select(func.count()).select_from(User)
+    
     count = session.exec(count_statement).one()
 
-    statement = select(User).offset(skip).limit(limit)
+    # Get users with application_id filter if provided
+    if application_id:
+        statement = select(User).where(User.application_id == application_id).offset(skip).limit(limit)
+    else:
+        statement = select(User).offset(skip).limit(limit)
+    
     users = session.exec(statement).all()
 
     return UsersPublic(data=users, count=count)
