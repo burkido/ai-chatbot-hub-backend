@@ -12,21 +12,24 @@ import {
   UsersService,
 } from "../client"
 import useCustomToast from "./useCustomToast"
-import { saveApplicationKey, clearApplicationKey } from "../utils/applicationKey"
+import { saveApplicationKey } from "../utils/applicationKey"
+import TokenService from "../utils/tokenService"
 
-const isLoggedIn = () => {
-  return localStorage.getItem("access_token") !== null
-}
+const isLoggedIn = () => TokenService.isLoggedIn();
 
 const useAuth = () => {
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
   const showToast = useCustomToast()
   const queryClient = useQueryClient()
+  
+  // This query will use our axios interceptor for token refresh as needed
   const { data: user, isLoading } = useQuery<UserPublic | null, Error>({
     queryKey: ["currentUser"],
     queryFn: UsersService.readUserMe,
     enabled: isLoggedIn(),
+    // Don't use custom retry logic here since the axios interceptor handles it
+    retry: false,
   })
 
   const signUpMutation = useMutation({
@@ -61,12 +64,16 @@ const useAuth = () => {
       saveApplicationKey(applicationKey)
     }
     
+    // Reset any previously attempted token refresh state
+    TokenService.resetRefreshState();
+    
     // Then make the standard login request (the interceptor will add the application key)
     const response = await LoginService.loginAccessToken({
       formData: data
     })
     
-    localStorage.setItem("access_token", response.access_token)
+    // Store all token information
+    TokenService.saveTokens(response);
     
     return response
   }
@@ -93,8 +100,7 @@ const useAuth = () => {
   })
 
   const logout = () => {
-    localStorage.removeItem("access_token")
-    clearApplicationKey() // Also clear the application key
+    TokenService.clearTokens();
     navigate({ to: "/login" })
   }
 

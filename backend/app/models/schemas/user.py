@@ -1,4 +1,5 @@
-from typing import List
+from typing import List, Dict
+from datetime import datetime
 from pydantic import EmailStr
 from sqlmodel import Field, SQLModel
 import uuid
@@ -79,3 +80,23 @@ class RegisterResponse(SQLModel):
 class CreditAddRequest(SQLModel):
     """Schema for credit addition request"""
     amount: int = Field(gt=0, lt=10)
+
+
+class UserStatPoint(SQLModel):
+    """Schema for a single user statistics data point"""
+    date: datetime
+    count: int
+
+
+class ApplicationUserStats(SQLModel):
+    """Schema for user statistics for a single application"""
+    application_id: uuid.UUID
+    application_name: str
+    data_points: List[UserStatPoint]
+    current_count: int
+
+
+class UserStatistics(SQLModel):
+    """Schema for user statistics response"""
+    total_users: int
+    by_application: List[ApplicationUserStats]

@@ -39,7 +39,16 @@ export type NewPassword = {
 
 export type Token = {
   access_token: string
+  refresh_token: string
   token_type?: string
+  user_id: string
+  application_id: string
+  is_premium: boolean
+  remaining_credit: number
+}
+
+export type RefreshTokenRequest = {
+  refresh_token: string
 }
 
 export type UpdatePassword = {
@@ -97,4 +106,21 @@ export type ValidationError = {
   loc: Array<string | number>
   msg: string
   type: string
+}
+
+export type UserStatPoint = {
+  date: string
+  count: number
+}
+
+export type ApplicationUserStats = {
+  application_id: string
+  application_name: string
+  data_points: UserStatPoint[]
+  current_count: number
+}
+
+export type UserStatistics = {
+  total_users: number
+  by_application: ApplicationUserStats[]
 }

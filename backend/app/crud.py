@@ -50,12 +50,12 @@ def create_user(*, session: Session, user_create: UserCreate) -> User:
     session.refresh(db_obj)
     return db_obj
 
-def update_user(session: Session, db_obj: User, obj_in: Union[UserUpdate, Dict[str, Any]]) -> User:
+def update_user(session: Session, db_obj: User, user_in: Union[UserUpdate, Dict[str, Any]]) -> User:
     obj_data = jsonable_encoder(db_obj)
-    if isinstance(obj_in, dict):
-        update_data = obj_in
+    if isinstance(user_in, dict):
+        update_data = user_in
     else:
-        update_data = obj_in.model_dump(exclude_unset=True)
+        update_data = user_in.model_dump(exclude_unset=True)
     
     # Handle password updates separately
     password = update_data.pop("password", None)

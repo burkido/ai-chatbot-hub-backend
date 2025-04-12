@@ -5,6 +5,9 @@ import {
   Container,
   Flex,
   Heading,
+  Input,
+  InputGroup,
+  InputLeftElement,
   SkeletonText,
   Table,
   TableContainer,
@@ -14,9 +17,10 @@ import {
   Thead,
   Tr,
 } from "@chakra-ui/react"
+import { SearchIcon } from "@chakra-ui/icons"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { z } from "zod"
 
 import { type UserPublic, UsersService } from "../../client"
@@ -26,6 +30,7 @@ import Navbar from "../../components/Common/Navbar"
 
 const usersSearchSchema = z.object({
   page: z.number().catch(1),
+  applicationKey: z.string().optional(),
 })
 
 export const Route = createFileRoute("/_layout/admin")({
@@ -35,28 +40,33 @@ export const Route = createFileRoute("/_layout/admin")({
 
 const PER_PAGE = 5
 
-function getUsersQueryOptions({ page }: { page: number }) {
+function getUsersQueryOptions({ page, applicationKey }: { page: number, applicationKey?: string }) {
   return {
     queryFn: () =>
-      UsersService.readUsers({ skip: (page - 1) * PER_PAGE, limit: PER_PAGE }),
-    queryKey: ["users", { page }],
+      UsersService.readUsers({ 
+        skip: (page - 1) * PER_PAGE, 
+        limit: PER_PAGE,
+        application_key: applicationKey
+      }),
+    queryKey: ["users", { page, applicationKey }],
   }
 }
 
 function UsersTable() {
   const queryClient = useQueryClient()
   const currentUser = queryClient.getQueryData<UserPublic>(["currentUser"])
-  const { page } = Route.useSearch()
+  const { page, applicationKey } = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const setPage = (page: number) =>
     navigate({ search: (prev) => ({ ...prev, page }) })
+  const [searchInput, setSearchInput] = useState(applicationKey || "")
 
   const {
     data: users,
     isPending,
     isPlaceholderData,
   } = useQuery({
-    ...getUsersQueryOptions({ page }),
+    ...getUsersQueryOptions({ page, applicationKey }),
     placeholderData: (prevData) => prevData,
   })
 
@@ -65,12 +75,59 @@ function UsersTable() {
 
   useEffect(() => {
     if (hasNextPage) {
-      queryClient.prefetchQuery(getUsersQueryOptions({ page: page + 1 }))
+      queryClient.prefetchQuery(getUsersQueryOptions({ page: page + 1, applicationKey }))
     }
-  }, [page, queryClient, hasNextPage])
+  }, [page, queryClient, hasNextPage, applicationKey])
+
+  const handleApplicationSearch = () => {
+    navigate({ 
+      search: (prev) => ({ 
+        ...prev, 
+        applicationKey: searchInput || undefined,
+        page: 1 // Reset to first page on new search
+      }) 
+    })
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleApplicationSearch()
+    }
+  }
+
+  const clearSearch = () => {
+    setSearchInput("")
+    navigate({ 
+      search: (prev) => ({ 
+        ...prev, 
+        applicationKey: undefined,
+        page: 1
+      }) 
+    })
+  }
 
   return (
     <>
+      <Flex my={4} gap={2}>
+        <InputGroup maxW="md">
+          <InputLeftElement pointerEvents="none">
+            <SearchIcon color="gray.300" />
+          </InputLeftElement>
+          <Input
+            placeholder="Filter by Application Key"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+          />
+        </InputGroup>
+        <Button onClick={handleApplicationSearch}>Search</Button>
+        {applicationKey && (
+          <Button onClick={clearSearch} variant="outline">
+            Clear Filter
+          </Button>
+        )}
+      </Flex>
+      
       <TableContainer>
         <Table size={{ base: "sm", md: "md" }}>
           <Thead>

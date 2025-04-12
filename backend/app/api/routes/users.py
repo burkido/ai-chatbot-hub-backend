@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
 # Updated imports to use specific directory paths
 from app.models.database.user import User
+from app.models.database.application import Application
 from app.models.database.verification import Verification
 from app.models.schemas.message import Message
 from app.models.schemas.user import (
@@ -36,19 +37,16 @@ def read_users(
     session: SessionDep, 
     skip: int = 0, 
     limit: int = 100, 
-    api_key: str = None
+    application_key: str = None
 ) -> Any:
     """
     Retrieve users.
     """
     # Get application by API key if provided
     application_id = None
-    if api_key:
-        from app.models.database.application import Application
-        from sqlmodel import select
-        
+    if application_key:
         # Find the application with the given API key
-        statement = select(Application).where(Application.api_key == api_key)
+        statement = select(Application).where(Application.api_key == application_key)
         application = session.exec(statement).first()
         
         if not application:
@@ -85,7 +83,8 @@ def create_user(*, session: SessionDep, language: LanguageDep, user_in: UserCrea
     """
     Create new user.
     """
-    user = crud.get_user_by_email(session=session, email=user_in.email)
+    # For superusers creating users, we check across all applications
+    user = crud.get_user_by_email(session=session, email=user_in.email, application_id=user_in.application_id)
     if user:
         raise HTTPException(
             status_code=400,
@@ -117,7 +116,7 @@ def update_user_me(
     """
 
     if user_in.email:
-        existing_user = crud.get_user_by_email(session=session, email=user_in.email)
+        existing_user = crud.get_user_by_email(session=session, email=user_in.email, application_id=current_user.application_id)
         if existing_user and existing_user.id != current_user.id:
             raise HTTPException(
                 status_code=409, detail=get_translation("user_with_email_exists", language)
@@ -252,13 +251,13 @@ def update_user(
             detail=get_translation("user_not_found", language),
         )
     if user_in.email:
-        existing_user = crud.get_user_by_email(session=session, email=user_in.email)
+        existing_user = crud.get_user_by_email(session=session, email=user_in.email, application_id=db_user.application_id)
         if existing_user and existing_user.id != user_id:
             raise HTTPException(
                 status_code=409, detail=get_translation("user_with_email_exists", language)
             )
 
-    db_user = crud.update_user(session=session, db_user=db_user, user_in=user_in)
+    db_user = crud.update_user(session=session, db_obj=db_user, user_in=user_in)
     return db_user
 
 
