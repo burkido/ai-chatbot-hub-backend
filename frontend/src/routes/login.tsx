@@ -4,6 +4,7 @@ import {
   Container,
   FormControl,
   FormErrorMessage,
+  FormLabel,
   Icon,
   Image,
   Input,
@@ -24,6 +25,7 @@ import Logo from "/assets/images/fastapi-logo.svg"
 import type { Body_login_login_access_token as AccessToken } from "../client"
 import useAuth, { isLoggedIn } from "../hooks/useAuth"
 import { emailPattern } from "../utils"
+import { getApplicationKey } from "../utils/applicationKey"
 
 export const Route = createFileRoute("/login")({
   component: Login,
@@ -36,6 +38,10 @@ export const Route = createFileRoute("/login")({
   },
 })
 
+interface LoginForm extends AccessToken {
+  applicationKey: string;
+}
+
 function Login() {
   const [show, setShow] = useBoolean()
   const { loginMutation, error, resetError } = useAuth()
@@ -43,22 +49,28 @@ function Login() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<AccessToken>({
+  } = useForm<LoginForm>({
     mode: "onBlur",
     criteriaMode: "all",
     defaultValues: {
       username: "",
       password: "",
+      applicationKey: getApplicationKey() || "",
     },
   })
 
-  const onSubmit: SubmitHandler<AccessToken> = async (data) => {
+  const onSubmit: SubmitHandler<LoginForm> = async (data) => {
     if (isSubmitting) return
 
     resetError()
 
+    const { applicationKey, ...credentials } = data;
+
     try {
-      await loginMutation.mutateAsync(data)
+      await loginMutation.mutateAsync({ 
+        credentials, 
+        applicationKey 
+      })
     } catch {
       // error is handled by useAuth hook
     }
@@ -125,6 +137,14 @@ function Login() {
             </InputRightElement>
           </InputGroup>
           {error && <FormErrorMessage>{error}</FormErrorMessage>}
+        </FormControl>
+        <FormControl id="applicationKey">
+          <FormLabel fontSize="sm" color="gray.500">Application Key</FormLabel>
+          <Input
+            {...register("applicationKey")}
+            placeholder="Application Key"
+            type="text"
+          />
         </FormControl>
         <Link as={RouterLink} to="/recover-password" color="blue.500">
           Forgot password?

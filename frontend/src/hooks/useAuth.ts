@@ -12,6 +12,7 @@ import {
   UsersService,
 } from "../client"
 import useCustomToast from "./useCustomToast"
+import { saveApplicationKey, clearApplicationKey } from "../utils/applicationKey"
 
 const isLoggedIn = () => {
   return localStorage.getItem("access_token") !== null
@@ -54,15 +55,25 @@ const useAuth = () => {
     },
   })
 
-  const login = async (data: AccessToken) => {
+  const login = async (data: AccessToken, applicationKey?: string) => {
+    // First, if we have an application key, store it before the login request
+    if (applicationKey) {
+      saveApplicationKey(applicationKey)
+    }
+    
+    // Then make the standard login request (the interceptor will add the application key)
     const response = await LoginService.loginAccessToken({
-      formData: data,
+      formData: data
     })
+    
     localStorage.setItem("access_token", response.access_token)
+    
+    return response
   }
 
   const loginMutation = useMutation({
-    mutationFn: login,
+    mutationFn: ({credentials, applicationKey}: {credentials: AccessToken, applicationKey?: string}) => 
+      login(credentials, applicationKey),
     onSuccess: () => {
       navigate({ to: "/" })
     },
@@ -83,6 +94,7 @@ const useAuth = () => {
 
   const logout = () => {
     localStorage.removeItem("access_token")
+    clearApplicationKey() // Also clear the application key
     navigate({ to: "/login" })
   }
 
