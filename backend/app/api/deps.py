@@ -41,9 +41,6 @@ def get_application_by_package_name(
     """
     Verify the application package name and return the corresponding application.
     """
-
-    print(f"X-Application-Key: {x_application_key}")
-
     if not x_application_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -56,8 +53,6 @@ def get_application_by_package_name(
             Application.is_active == True
         )
     ).first()
-
-    print(f"Application found: {application}")
     
     if not application:
         raise HTTPException(

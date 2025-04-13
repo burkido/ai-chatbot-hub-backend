@@ -30,11 +30,8 @@ def get_user_by_google_id(session: Session, google_id: str, application_id: uuid
     return session.exec(statement).first()
 
 def get_user_by_id(session: Session, user_id: str, application_id: uuid.UUID = None) -> Optional[User]:
-    if application_id:
-        statement = select(User).where(User.id == user_id, User.application_id == application_id)
-        return session.exec(statement).first()
-    else:
-        return session.get(User, user_id)
+    statement = select(User).where(User.id == user_id, User.application_id == application_id)
+    return session.exec(statement).first()
 
 def get_users(session: Session, application_id: uuid.UUID = None, skip: int = 0, limit: int = 100) -> List[User]:
     if application_id:
