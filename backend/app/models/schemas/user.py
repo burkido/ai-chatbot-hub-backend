@@ -83,6 +83,8 @@ class CreditAddRequest(SQLModel):
     """Schema for credit addition request"""
     amount: int = Field(gt=0, lt=10)
 
+class PasswordRecovery(SQLModel):
+    user_id: str
 
 class UserStatPoint(SQLModel):
     """Schema for a single user statistics data point"""

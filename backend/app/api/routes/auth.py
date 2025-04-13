@@ -12,7 +12,7 @@ import jwt
 from sqlmodel import select
 
 from app import crud
-from app.api.deps import CurrentUser, SessionDep, LanguageDep, ApplicationDep, get_current_active_superuser
+from app.api.deps import CurrentUser, SessionDep, LanguageDep, ApplicationDep
 from app.core import security
 from app.core.config import settings
 from app.core.i18n import get_translation
@@ -21,10 +21,10 @@ from app.core.security import get_password_hash
 from app.models.database.user import User
 from app.models.database.verification import Verification
 from app.models.database.invitation import Invitation
-from app.models.database.application import Application
 from app.models.database.otp import OTP
+from app.models.database.reset_password_token import ResetPasswordToken
 
-from app.models.schemas.user import UserPublic, UserCreate, UserGoogleLogin, RegisterResponse
+from app.models.schemas.user import UserPublic, UserCreate, UserGoogleLogin, RegisterResponse, PasswordRecovery
 from app.models.schemas.token import Token, RefreshTokenRequest, NewPassword
 from app.models.schemas.message import Message
 from app.models.schemas.verification import VerificationVerify, VerificationResponse, RenewVerification
@@ -383,7 +383,7 @@ def register(
         user_create.credit = application.default_user_credit
     
     # Create the new user
-    new_user = crud.create_user(session=session, user_create=user_create)
+    new_user = crud.create_user(session=session, user_create=user_create, application_id=application.id)
 
     # Give credits to inviter if invitation is valid
     if user_create.invite_code and user_create.inviter_id:
@@ -555,39 +555,57 @@ def verify_email_resend(
     
     return Message(message=get_translation("new_verification_sent", language))
 
-@router.post("/password-recovery/{user_id}")
+@router.post("/password-recovery/{email}")
 def recover_password(
-    user_id: str, 
-    session: SessionDep,
+    email: str,
+    session: SessionDep, 
     language: LanguageDep,
     application: ApplicationDep
 ) -> Message:
     """
-    Password Recovery with localized messages
+    Password Recovery with 6-digit token
     """
-    # Find user by ID and application
-    user = crud.get_user_by_id(
+    user = crud.get_user_by_email(
         session=session, 
-        user_id=user_id,
+        email=email,
         application_id=application.id
     )
 
     if not user:
         raise HTTPException(
             status_code=404,
-            detail=get_translation("user_not_found", language),  
+            detail=get_translation("user_not_found", language),
         )
     
-    email = user.email
-    password_reset_token = generate_password_reset_token(email=email)
+    # Delete any existing unused reset tokens for this user
+    statement = select(ResetPasswordToken).where(
+        ResetPasswordToken.user_id == str(user.id),
+        ResetPasswordToken.application_id == application.id,
+        ResetPasswordToken.is_used == False
+    )
+    existing_tokens = session.exec(statement).all()
+    for token in existing_tokens:
+        session.delete(token)
+    session.commit()
     
-    # Generate email with localized subject
+    # Generate new reset password token
+    reset_token = ResetPasswordToken.generate(
+        application_id=application.id,
+        email=email,
+        user_id=str(user.id),
+        expiration_hours=settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS
+    )
+    session.add(reset_token)
+    session.commit()
+    session.refresh(reset_token)
+    
+    # Generate email with reset token
     email_data = generate_reset_password_email(
         email_to=email, 
         email=email, 
-        token=password_reset_token,
-        deeplink=f"{application.app_deeplink_url}/reset-password/{password_reset_token}",
-        language=language  
+        token=reset_token.token,  # Use the 6-digit token
+        deeplink=f"{application.app_deeplink_url}/reset-password/{reset_token.token}",
+        language=language
     )
     
     send_email(
@@ -596,7 +614,7 @@ def recover_password(
         html_content=email_data.html_content,
     )
     
-    return Message(message=get_translation("password_recovery_sent", language))
+    return Message(message="Password recovery email sent")
 
 @router.post("/reset-password/")
 def reset_password(
@@ -606,18 +624,34 @@ def reset_password(
     application: ApplicationDep
 ) -> Message:
     """
-    Reset password
+    Reset password using 6-digit token
     """
-    email = verify_password_reset_token(token=body.token)
-    if not email:
+    # Find token in the database
+    statement = select(ResetPasswordToken).where(
+        ResetPasswordToken.token == body.token,
+        ResetPasswordToken.application_id == application.id,
+        ResetPasswordToken.is_used == False
+    )
+    token_record = session.exec(statement).first()
+    
+    # Verify token exists and is valid
+    if not token_record:
         raise HTTPException(
             status_code=400, 
             detail=get_translation("invalid_token", language)
         )
     
-    user = crud.get_user_by_email(
+    # Check if token has expired
+    if token_record.is_expired():
+        raise HTTPException(
+            status_code=400, 
+            detail=get_translation("token_expired", language)
+        )
+    
+    # Get the user associated with the token
+    user = crud.get_user_by_id(
         session=session, 
-        email=email,
+        user_id=token_record.user_id,
         application_id=application.id
     )
     
@@ -632,9 +666,16 @@ def reset_password(
             detail=get_translation("inactive_user", language)
         )
     
+    # Update the user's password
     hashed_password = get_password_hash(password=body.new_password)
     user.hashed_password = hashed_password
+    
+    # Mark the token as used
+    token_record.is_used = True
+    
+    # Save changes
     session.add(user)
+    session.add(token_record)
     session.commit()
     
     return Message(message=get_translation("password_updated", language))

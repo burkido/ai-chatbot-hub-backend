@@ -51,6 +51,10 @@ def upgrade():
         """
     )
     
+    # Force a transaction commit to ensure the application table is fully created
+    # before we reference it in foreign keys
+    op.execute("COMMIT")
+    
     # Step 3: Add application_id column to user table
     op.add_column(
         'user', 
