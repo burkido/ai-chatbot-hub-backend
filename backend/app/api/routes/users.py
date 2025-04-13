@@ -1,8 +1,9 @@
 import uuid
 from typing import Any
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import func, select
+from sqlmodel import func, select, and_
 
 from app import crud
 from app.api.deps import (
@@ -21,7 +22,8 @@ from app.models.database.verification import Verification
 from app.models.schemas.message import Message
 from app.models.schemas.user import (
     UserCreate, UserPublic, UserRegister, UserUpdate, 
-    UserUpdateMe, UsersPublic, UpdatePassword, CreditAddRequest
+    UserUpdateMe, UsersPublic, UpdatePassword, CreditAddRequest,
+    UserStatistics, ApplicationUserStats, UserStatPoint
 )
 from app.utils import generate_new_account_email, generate_email_verification_otp, send_email
 from app.core.i18n import get_translation
@@ -209,6 +211,72 @@ def register_user(session: SessionDep, language: LanguageDep, application: Appli
     
     return user
 
+@router.post("/add-credit/ad", response_model=UserPublic)
+def add_credit_from_ad(
+    *, session: SessionDep, current_user: CurrentUser, credit_request: CreditAddRequest
+) -> Any:
+    """
+    Add credits to the current user after watching an ad.
+    """
+    # Add the specified amount of credits
+    current_user.credit += credit_request.amount
+    
+    # Save changes to database
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    
+    return current_user
+
+@router.get(
+    "/user-statistics",
+    response_model=UserStatistics,
+)
+def get_user_statistics(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Get all user statistics for the current user's application without time filtering.
+    """
+    # Get application ID from current user
+    application_id = current_user.application_id
+    
+    # Get total users count
+    total_query = select(func.count()).select_from(User).where(User.application_id == application_id)
+    total_users = session.exec(total_query).one()
+    
+    # Create result structure
+    result = UserStatistics(total_users=total_users, by_application=[])
+    
+    # Get the application for the current user
+    app_query = select(Application).where(Application.id == application_id)
+    applications = session.exec(app_query).all()
+    
+    # For each application, create a simpler response without date filtering
+    for app in applications:
+        # Get current user count for this application
+        current_count_query = select(func.count()).select_from(User).where(User.application_id == app.id)
+        current_count = session.exec(current_count_query).one()
+        
+        # Since we don't have created_at field, we'll just return the current count
+        # without historical data points
+        data_points = [
+            UserStatPoint(date=datetime.now().isoformat(), count=current_count)
+        ]
+        
+        # Add to results
+        result.by_application.append(
+            ApplicationUserStats(
+                application_id=str(app.id),
+                application_name=app.name,
+                data_points=data_points,
+                current_count=current_count
+            )
+        )
+    
+    return result
+
 
 @router.get("/{user_id}", response_model=UserPublic)
 def read_user_by_id(
@@ -278,20 +346,3 @@ def delete_user(
     session.delete(user)
     session.commit()
     return Message(message="User deleted successfully")
-
-@router.post("/add-credit/ad", response_model=UserPublic)
-def add_credit_from_ad(
-    *, session: SessionDep, current_user: CurrentUser, credit_request: CreditAddRequest
-) -> Any:
-    """
-    Add credits to the current user after watching an ad.
-    """
-    # Add the specified amount of credits
-    current_user.credit += credit_request.amount
-    
-    # Save changes to database
-    session.add(current_user)
-    session.commit()
-    session.refresh(current_user)
-    
-    return current_user

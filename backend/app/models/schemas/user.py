@@ -84,7 +84,7 @@ class CreditAddRequest(SQLModel):
 
 class UserStatPoint(SQLModel):
     """Schema for a single user statistics data point"""
-    date: datetime
+    date: str
     count: int
 
 

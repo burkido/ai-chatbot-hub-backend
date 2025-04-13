@@ -61,7 +61,15 @@ export const UserStats = () => {
       setLoading(true)
       try {
         const days = TIME_PERIODS[selectedPeriod]
-        const data = await UsersService.getUserStatistics({ days })
+        // Calculate start date based on selected period
+        const endDate = new Date().toISOString()
+        const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+        
+        const data = await UsersService.getUserStatistics({ 
+          start_date: startDate,
+          end_date: endDate
+          // No api_key parameter will default to current user's application
+        })
         setStatistics(data)
         
         // Transform the data for the chart
