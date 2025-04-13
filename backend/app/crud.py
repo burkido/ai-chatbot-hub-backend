@@ -43,8 +43,12 @@ def get_users(session: Session, application_id: uuid.UUID = None, skip: int = 0,
         statement = select(User).offset(skip).limit(limit)
     return session.exec(statement).all()
 
-def create_user(*, session: Session, user_create: UserCreate) -> User:
-    db_obj = User.model_validate(user_create, update={"hashed_password": get_password_hash(user_create.password)})
+def create_user(*, session: Session, user_create: UserCreate, application_id: uuid.UUID) -> User:
+    # Add application_id to user data
+    user_create_dict = user_create.model_dump()
+    user_create_dict["application_id"] = application_id
+    db_obj = User.model_validate(user_create_dict, update={"hashed_password": get_password_hash(user_create.password)})
+    
     session.add(db_obj)
     session.commit()
     session.refresh(db_obj)
@@ -90,10 +94,10 @@ def decrease_user_credit(*, session: Session, user: User, amount: int) -> User:
 # Application-related CRUD operations
 
 def create_application(*, session: Session, app_create: ApplicationCreate) -> Application:
-    # Generate unique API key if not provided
-    if not app_create.api_key:
+    # Generate unique package name if not provided
+    if not app_create.package_name:
         import secrets
-        app_create.api_key = secrets.token_urlsafe(32)
+        app_create.package_name = secrets.token_urlsafe(32)
         
     db_obj = Application.model_validate(app_create)
     session.add(db_obj)
@@ -104,8 +108,8 @@ def create_application(*, session: Session, app_create: ApplicationCreate) -> Ap
 def get_application(session: Session, application_id: uuid.UUID) -> Optional[Application]:
     return session.get(Application, application_id)
 
-def get_application_by_api_key(session: Session, api_key: str) -> Optional[Application]:
-    statement = select(Application).where(Application.api_key == api_key)
+def get_application_by_package_name(session: Session, package_name: str) -> Optional[Application]:
+    statement = select(Application).where(Application.package_name == package_name)
     return session.exec(statement).first()
 
 def get_applications(session: Session, skip: int = 0, limit: int = 100) -> List[Application]:

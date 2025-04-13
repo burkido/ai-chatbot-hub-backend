@@ -38,41 +38,20 @@ router = APIRouter()
 def read_users(
     session: SessionDep, 
     skip: int = 0, 
-    limit: int = 100, 
-    application_key: str = None
+    limit: int = 100,
+    application: ApplicationDep = None
 ) -> Any:
     """
-    Retrieve users.
+    Retrieve users for the current application.
     """
-    # Get application by API key if provided
-    application_id = None
-    if application_key:
-        # Find the application with the given API key
-        statement = select(Application).where(Application.api_key == application_key)
-        application = session.exec(statement).first()
-        
-        if not application:
-            # If no application found with this API key, return empty result
-            return UsersPublic(data=[], count=0)
-        
-        application_id = application.id
-
-    # Get count with application_id filter if provided
-    if application_id:
-        count_statement = select(func.count()).select_from(
-            select(User).where(User.application_id == application_id).subquery()
-        )
-    else:
-        count_statement = select(func.count()).select_from(User)
-    
+    # Get count with application filter
+    count_statement = select(func.count()).select_from(
+        select(User).where(User.application_id == application.id).subquery()
+    )
     count = session.exec(count_statement).one()
 
-    # Get users with application_id filter if provided
-    if application_id:
-        statement = select(User).where(User.application_id == application_id).offset(skip).limit(limit)
-    else:
-        statement = select(User).offset(skip).limit(limit)
-    
+    # Get users with application filter
+    statement = select(User).where(User.application_id == application.id).offset(skip).limit(limit)
     users = session.exec(statement).all()
 
     return UsersPublic(data=users, count=count)
@@ -81,19 +60,24 @@ def read_users(
 @router.post(
     "/", dependencies=[Depends(get_current_active_superuser)], response_model=UserPublic
 )
-def create_user(*, session: SessionDep, language: LanguageDep, user_in: UserCreate) -> Any:
+def create_user(
+    session: SessionDep, 
+    language: LanguageDep, 
+    user_in: UserCreate,
+    application: ApplicationDep
+) -> Any:
     """
-    Create new user.
+    Create new user in the current application.
     """
-    # For superusers creating users, we check across all applications
-    user = crud.get_user_by_email(session=session, email=user_in.email, application_id=user_in.application_id)
+    # For superusers creating users, we check within the current application
+    user = crud.get_user_by_email(session=session, email=user_in.email, application_id=application.id)
     if user:
         raise HTTPException(
             status_code=400,
             detail=get_translation("user_with_email_exists", language),
         )
-
-    user = crud.create_user(session=session, user_create=user_in)
+    
+    user = crud.create_user(session=session, user_create=user_in, application_id=application.id)
     if settings.emails_enabled and user_in.email:
         email_data = generate_new_account_email(
             email_to=user_in.email, 
@@ -184,8 +168,12 @@ def register_user(session: SessionDep, language: LanguageDep, application: Appli
             status_code=400,
             detail=get_translation("user_with_email_exists", language),
         )
+    
+    # Create a user_create object from the registration input
     user_create = UserCreate.model_validate(user_in)
-    user = crud.create_user(session=session, user_create=user_create)
+    
+    # Create user with application_id from the header
+    user = crud.create_user(session=session, user_create=user_create, application_id=application.id)
     
     # Create and send Verification for email verification
     verification = Verification.generate(
@@ -235,45 +223,36 @@ def add_credit_from_ad(
 def get_user_statistics(
     session: SessionDep,
     current_user: CurrentUser,
+    application: ApplicationDep,
 ) -> Any:
     """
     Get all user statistics for the current user's application without time filtering.
     """
-    # Get application ID from current user
-    application_id = current_user.application_id
-    
-    # Get total users count
-    total_query = select(func.count()).select_from(User).where(User.application_id == application_id)
+    # Get total users count for this application
+    total_query = select(func.count()).select_from(User).where(User.application_id == application.id)
     total_users = session.exec(total_query).one()
     
     # Create result structure
     result = UserStatistics(total_users=total_users, by_application=[])
     
-    # Get the application for the current user
-    app_query = select(Application).where(Application.id == application_id)
-    applications = session.exec(app_query).all()
+    # Get current user count for this application
+    current_count_query = select(func.count()).select_from(User).where(User.application_id == application.id)
+    current_count = session.exec(current_count_query).one()
     
-    # For each application, create a simpler response without date filtering
-    for app in applications:
-        # Get current user count for this application
-        current_count_query = select(func.count()).select_from(User).where(User.application_id == app.id)
-        current_count = session.exec(current_count_query).one()
-        
-        # Since we don't have created_at field, we'll just return the current count
-        # without historical data points
-        data_points = [
-            UserStatPoint(date=datetime.now().isoformat(), count=current_count)
-        ]
-        
-        # Add to results
-        result.by_application.append(
-            ApplicationUserStats(
-                application_id=str(app.id),
-                application_name=app.name,
-                data_points=data_points,
-                current_count=current_count
-            )
+    # Since we don't have created_at field, we'll just return the current count
+    # without historical data points
+    data_points = [
+        UserStatPoint(date=datetime.now().isoformat(), count=current_count)
+    ]
+    
+    # Add to results
+    result.by_application.append(
+        ApplicationUserStats(
+            application_name=application.name,
+            data_points=data_points,
+            current_count=current_count
         )
+    )
     
     return result
 

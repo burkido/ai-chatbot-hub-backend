@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from sqlmodel import select
 
 from app import crud
-from app.api.deps import SessionDep, CurrentUser, get_current_active_superuser
+from app.api.deps import SessionDep, CurrentUser, get_current_active_superuser, ApplicationDep
 from app.models.database.application import Application
 from app.models.schemas.application import (
     ApplicationCreate,
@@ -27,9 +27,9 @@ def create_application(
     """
     Create a new application (admin only).
     """
-    # Generate a secure API key if not provided
-    if not application_in.api_key:
-        application_in.api_key = secrets.token_urlsafe(32)
+    # Generate a secure package name if not provided
+    if not application_in.package_name:
+        application_in.package_name = secrets.token_urlsafe(32)
         
     application = crud.create_application(
         session=session, 
@@ -61,50 +61,27 @@ def get_applications(
     )
 
 
-@router.get("/{application_id}", response_model=ApplicationPublic)
-def get_application(
-    application_id: UUID,
+@router.get("/current", response_model=ApplicationPublic)
+def get_current_application(
     session: SessionDep,
-    current_user: Any = get_current_active_superuser,
+    application: ApplicationDep,
 ) -> Any:
     """
-    Get a specific application by ID (admin only).
+    Get the current application based on X-Application-Key header.
     """
-    application = crud.get_application(
-        session=session, 
-        application_id=application_id
-    )
-    
-    if not application:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Application not found"
-        )
-        
     return application
 
 
-@router.put("/{application_id}", response_model=ApplicationPublic)
+@router.put("/", response_model=ApplicationPublic)
 def update_application(
-    application_id: UUID,
     application_in: ApplicationUpdate,
     session: SessionDep,
+    application: ApplicationDep,
     current_user: Any = get_current_active_superuser,
 ) -> Any:
     """
-    Update a specific application (admin only).
+    Update the current application (admin only).
     """
-    application = crud.get_application(
-        session=session, 
-        application_id=application_id
-    )
-    
-    if not application:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Application not found"
-        )
-        
     application = crud.update_application(
         session=session,
         db_obj=application,
@@ -114,35 +91,24 @@ def update_application(
     return application
 
 
-@router.post("/{application_id}/regenerate-api-key", response_model=ApplicationPublic)
-def regenerate_api_key(
-    application_id: UUID,
+@router.post("/regenerate-package-name", response_model=ApplicationPublic)
+def regenerate_package_name(
     session: SessionDep,
+    application: ApplicationDep,
     current_user: Any = get_current_active_superuser,
 ) -> Any:
     """
-    Regenerate the API key for an application (admin only).
+    Regenerate the package name for the current application (admin only).
     
-    Warning: This will invalidate the existing API key and all clients will need to be updated.
+    Warning: This will invalidate the existing package name and all clients will need to be updated.
     """
-    application = crud.get_application(
-        session=session, 
-        application_id=application_id
-    )
-    
-    if not application:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Application not found"
-        )
-    
-    # Generate a new secure API key
-    new_api_key = secrets.token_urlsafe(32)
+    # Generate a new secure package name
+    new_package_name = secrets.token_urlsafe(32)
     
     application = crud.update_application(
         session=session,
         db_obj=application,
-        obj_in={"api_key": new_api_key}
+        obj_in={"package_name": new_package_name}
     )
     
     return application

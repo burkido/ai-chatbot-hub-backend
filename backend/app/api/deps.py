@@ -34,12 +34,12 @@ def get_language(request: Request) -> str:
 
 SessionDep = Annotated[Session, Depends(get_db)]
 
-def get_application_by_api_key(
+def get_application_by_package_name(
     session: SessionDep, 
     x_application_key: Optional[str] = Header(None)
 ) -> Application:
     """
-    Verify the application API key and return the corresponding application.
+    Verify the application package name and return the corresponding application.
     """
 
     print(f"X-Application-Key: {x_application_key}")
@@ -52,7 +52,7 @@ def get_application_by_api_key(
     
     application = session.exec(
         select(Application).where(
-            Application.api_key == x_application_key,
+            Application.package_name == x_application_key,
             Application.is_active == True
         )
     ).first()
@@ -62,14 +62,14 @@ def get_application_by_api_key(
     if not application:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or inactive application API key",
+            detail="Invalid or inactive application key",
         )
     
     return application
 
 TokenDep = Annotated[str, Depends(reusable_oauth2)]
 LanguageDep = Annotated[str, Depends(get_language)]
-ApplicationDep = Annotated[Application, Depends(get_application_by_api_key)]
+ApplicationDep = Annotated[Application, Depends(get_application_by_package_name)]
 
 def get_current_user(
     session: SessionDep,

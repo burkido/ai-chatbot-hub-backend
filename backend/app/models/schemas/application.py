@@ -14,7 +14,7 @@ class ApplicationBase(SQLModel):
 
 class ApplicationCreate(ApplicationBase):
     """Schema for creating a new application"""
-    api_key: str | None = None  # Can be generated automatically
+    package_name: str | None = None  # Can be generated automatically
 
 
 class ApplicationUpdate(SQLModel):

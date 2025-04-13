@@ -6,7 +6,6 @@ class Token(SQLModel):
     refresh_token: str
     token_type: str = "bearer"
     user_id: str
-    application_id: str
     is_premium: bool = False
     remaining_credit: int
 
@@ -20,4 +19,3 @@ class TokenPayload(SQLModel):
 class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=40)
-    application_id: uuid.UUID

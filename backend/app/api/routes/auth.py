@@ -22,6 +22,7 @@ from app.models.database.user import User
 from app.models.database.verification import Verification
 from app.models.database.invitation import Invitation
 from app.models.database.application import Application
+from app.models.database.otp import OTP
 
 from app.models.schemas.user import UserPublic, UserCreate, UserGoogleLogin, RegisterResponse
 from app.models.schemas.token import Token, RefreshTokenRequest, NewPassword
@@ -44,20 +45,16 @@ router = APIRouter()
 @router.post("/login")
 def login(
     session: SessionDep, 
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     language: LanguageDep,
-    application: ApplicationDep,
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
+    application: ApplicationDep
 ) -> Token:
     """
     OAuth2 compatible token login, get an access token for future requests.
     """
     user = crud.authenticate(
-        session=session, 
-        email=form_data.username, 
-        password=form_data.password,
-        application_id=application.id
+        session=session, email=form_data.username, password=form_data.password, application_id=application.id
     )
-    
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -65,42 +62,34 @@ def login(
         )
     
     if not user.is_active:
-        raise HTTPException( 
+        raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=get_translation("account_inactive", language),  
         )
 
     if not user.is_verified:
-        # Check if there's an existing non-expired Verification
-        statement = select(Verification).where(
-            Verification.user_id == str(user.id),
-            Verification.application_id == application.id
-        ).order_by(Verification.created_at.desc())
+        # Check if there's an existing non-expired OTP
+        statement = select(OTP).where(OTP.user_id == str(user.id)).order_by(OTP.created_at.desc())
+        existing_otp = session.exec(statement).first()
         
-        existing_verification = session.exec(statement).first()
-        
-        # Handle Verification expiration
-        if existing_verification and not existing_verification.is_expired():
-            verification = existing_verification
+        # Handle OTP expiration
+        if existing_otp and not existing_otp.is_expired():
+            otp = existing_otp
         else:
-            if existing_verification:
-                session.delete(existing_verification)
+            if existing_otp:
+                session.delete(existing_otp)
                 session.commit()
                 
-            verification = Verification.generate(
-                application_id=application.id,
-                email=form_data.username, 
-                user_id=str(user.id)
-            )
-            session.add(verification)
+            otp = OTP.generate(email=form_data.username, user_id=str(user.id))
+            session.add(otp)
             session.commit()
-            session.refresh(verification)
+            session.refresh(otp)
 
         # Send verification email with localized subject
         email_data = generate_email_verification_otp(
             email_to=form_data.username, 
-            otp=verification.code,
-            deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
+            otp=otp.code,
+            deeplink=f"{application.app_deeplink_url}/verify/{otp.code}",
             language=language  
         )
         send_email(
@@ -130,7 +119,6 @@ def login(
             expires_delta=refresh_token_expires
         ),
         user_id=str(user.id),
-        application_id=str(application.id),
         is_premium=user.is_premium,
         remaining_credit=user.credit
     )
@@ -151,12 +139,27 @@ def google_login(
         application_id=application.id
     )
     
-    if not user:
+    # If user exists, verify their Google ID
+    if user:
+        # Check if user has a google_id and it matches
+        if hasattr(user, 'google_id') and user.google_id and user.google_id != user_google.google_id:
+            raise HTTPException(
+                status_code=401, 
+                detail=get_translation("invalid_google_credentials", language)  
+            )
+        # If user doesn't have a google_id yet, update it
+        elif not hasattr(user, 'google_id') or not user.google_id:
+            user.google_id = user_google.google_id
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+    else:
         raise HTTPException(
             status_code=404, 
             detail=get_translation("user_not_found", language)  
         )
-    elif not user.is_active:
+    
+    if not user.is_active:
         raise HTTPException(
             status_code=400, 
             detail=get_translation("inactive_user", language)  
@@ -204,7 +207,6 @@ def google_login(
             expires_delta=refresh_token_expires
         ),
         user_id=str(user.id),
-        application_id=str(application.id),
         is_premium=user.is_premium,
         remaining_credit=user.credit
     )
@@ -312,7 +314,6 @@ def refresh_access_token(
             expires_delta=refresh_token_expires
         ),
         user_id=str(user.id),
-        application_id=str(application.id),
         is_premium=user.is_premium,
         remaining_credit=user.credit
     )

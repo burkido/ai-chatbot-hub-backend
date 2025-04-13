@@ -1,6 +1,6 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 from datetime import datetime
-from pydantic import EmailStr
+from pydantic import EmailStr, BaseModel
 from sqlmodel import Field, SQLModel
 import uuid
 
@@ -14,14 +14,17 @@ class UserBase(SQLModel):
     credit: int = Field(default=10, ge=0)
     is_premium: bool = False
     is_verified: bool = False
-    application_id: uuid.UUID
 
 
-class UserCreate(UserBase):
-    """Schema for creating a new user"""
-    password: str = Field(min_length=8, max_length=40)
-    invite_code: str | None = Field(default=None)
-    inviter_id: str | None = Field(default=None)
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    is_superuser: bool = False
+    is_active: bool = True
+    is_verified: bool = False
+    credit: int = 10
+    invite_code: Optional[str] = None
+    inviter_id: Optional[str] = None
 
 
 class UserRegister(SQLModel):
@@ -29,7 +32,6 @@ class UserRegister(SQLModel):
     email: EmailStr = Field(max_length=255)
     password: str = Field(min_length=8, max_length=40)
     full_name: str | None = Field(default=None, max_length=255)
-    application_id: uuid.UUID
 
 
 class UserUpdate(UserBase):
@@ -69,7 +71,7 @@ class UsersPublic(SQLModel):
 class UserGoogleLogin(SQLModel):
     """Schema for Google login"""
     email: EmailStr
-    application_id: uuid.UUID
+    google_id: str
 
 
 class RegisterResponse(SQLModel):
@@ -90,7 +92,6 @@ class UserStatPoint(SQLModel):
 
 class ApplicationUserStats(SQLModel):
     """Schema for user statistics for a single application"""
-    application_id: uuid.UUID
     application_name: str
     data_points: List[UserStatPoint]
     current_count: int
