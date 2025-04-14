@@ -8,7 +8,7 @@ class User(SQLModel, table=True):
     """Database model for user table"""
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     application_id: uuid.UUID = Field(index=True, foreign_key="application.id")
-    email: str = Field(index=True, max_length=255)  # Removed unique constraint as same email can be on different apps
+    email: str = Field(unique=True, index=True, max_length=255)  # Restored unique constraint
     is_active: bool = Field(default=True)
     is_superuser: bool = Field(default=False)
     full_name: str | None = Field(default=None, max_length=255)

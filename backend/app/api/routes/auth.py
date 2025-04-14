@@ -24,7 +24,7 @@ from app.models.database.invitation import Invitation
 from app.models.database.otp import OTP
 from app.models.database.reset_password_token import ResetPasswordToken
 
-from app.models.schemas.user import UserPublic, UserCreate, UserGoogleLogin, RegisterResponse, PasswordRecovery
+from app.models.schemas.user import UserPublic, UserCreate, UserGoogleLogin, RegisterResponse, PasswordRecoveryRequest
 from app.models.schemas.token import Token, RefreshTokenRequest, NewPassword
 from app.models.schemas.message import Message
 from app.models.schemas.verification import VerificationVerify, VerificationResponse, RenewVerification
@@ -555,9 +555,9 @@ def verify_email_resend(
     
     return Message(message=get_translation("new_verification_sent", language))
 
-@router.post("/password-recovery/{email}")
+@router.post("/password-recovery")
 def recover_password(
-    email: str,
+    password_recovery_request: PasswordRecoveryRequest,
     session: SessionDep, 
     language: LanguageDep,
     application: ApplicationDep
@@ -567,7 +567,7 @@ def recover_password(
     """
     user = crud.get_user_by_email(
         session=session, 
-        email=email,
+        email=password_recovery_request.email,
         application_id=application.id
     )
 
@@ -591,7 +591,7 @@ def recover_password(
     # Generate new reset password token
     reset_token = ResetPasswordToken.generate(
         application_id=application.id,
-        email=email,
+        email=password_recovery_request.email,
         user_id=str(user.id),
         expiration_hours=settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS
     )
@@ -601,15 +601,15 @@ def recover_password(
     
     # Generate email with reset token
     email_data = generate_reset_password_email(
-        email_to=email, 
-        email=email, 
+        email_to=password_recovery_request.email, 
+        email=password_recovery_request.email, 
         token=reset_token.token,  # Use the 6-digit token
         deeplink=f"{application.app_deeplink_url}/reset-password/{reset_token.token}",
         language=language
     )
     
     send_email(
-        email_to=email,
+        email_to=password_recovery_request.email,
         subject=email_data.subject,
         html_content=email_data.html_content,
     )

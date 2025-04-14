@@ -86,6 +86,10 @@ class CreditAddRequest(SQLModel):
 class PasswordRecovery(SQLModel):
     user_id: str
 
+class PasswordRecoveryRequest(SQLModel):
+    """Schema for password recovery request"""
+    email: EmailStr
+
 class UserStatPoint(SQLModel):
     """Schema for a single user statistics data point"""
     date: str
