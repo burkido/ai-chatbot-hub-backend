@@ -10,6 +10,7 @@ class Application(SQLModel, table=True):
     package_name: str = Field(unique=True, index=True, max_length=255)
     description: str | None = Field(default=None)
     is_active: bool = Field(default=True)
+    default_user_credit: int = Field(default=10)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     

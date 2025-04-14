@@ -35,7 +35,6 @@ def get_user_by_email(session: Session, email: str, application_id: uuid.UUID) -
     if not application:
         return None
         
-    # Try with prefixed email
     prefixed_email = prefix_email_with_package(email, application.package_name)
     statement = select(User).where(User.email == prefixed_email, User.application_id == application_id)
     return session.exec(statement).first()
