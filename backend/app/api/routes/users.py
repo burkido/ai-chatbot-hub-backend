@@ -39,20 +39,42 @@ def read_users(
     session: SessionDep, 
     skip: int = 0, 
     limit: int = 100,
-    application: ApplicationDep = None
+    application: ApplicationDep = None,
+    application_key: str = None,
+    show_all: bool = False
 ) -> Any:
     """
-    Retrieve users for the current application.
+    Retrieve users.
+    - If application_key is provided, filter by that specific package name
+    - Otherwise, show users from all applications (behaves like show_all)
     """
-    # Get count with application filter
-    count_statement = select(func.count()).select_from(
-        select(User).where(User.application_id == application.id).subquery()
-    )
-    count = session.exec(count_statement).one()
+    if application_key:
+        # Find the application with this package_name
+        app_statement = select(Application).where(Application.package_name == application_key)
+        filtered_application = session.exec(app_statement).first()
+        
+        if filtered_application:
+            # Get count with filtered application
+            count_statement = select(func.count()).select_from(
+                select(User).where(User.application_id == filtered_application.id).subquery()
+            )
+            count = session.exec(count_statement).one()
 
-    # Get users with application filter
-    statement = select(User).where(User.application_id == application.id).offset(skip).limit(limit)
-    users = session.exec(statement).all()
+            # Get users with filtered application
+            statement = select(User).where(User.application_id == filtered_application.id).offset(skip).limit(limit)
+            users = session.exec(statement).all()
+        else:
+            # No application found with that package_name
+            return UsersPublic(data=[], count=0)
+    else:
+        # By default, get all users across all applications (no filter = show all)
+        # Get count of all users across all applications
+        count_statement = select(func.count()).select_from(User)
+        count = session.exec(count_statement).one()
+
+        # Get all users across all applications
+        statement = select(User).offset(skip).limit(limit)
+        users = session.exec(statement).all()
 
     return UsersPublic(data=users, count=count)
 
@@ -297,8 +319,16 @@ def update_user(
             status_code=404,
             detail=get_translation("user_not_found", language),
         )
+    
     if user_in.email:
-        existing_user = crud.get_user_by_email(session=session, email=user_in.email, application_id=db_user.application_id)
+        # Before checking for duplicate emails, extract the real email from the input
+        # to prevent double prefixing in the crud.update_user function
+        from app.utils import extract_real_email
+        user_in_dict = user_in.model_dump(exclude_unset=True)
+        original_email = user_in_dict.get("email")
+        
+        # Check if the email already exists for another user
+        existing_user = crud.get_user_by_email(session=session, email=original_email, application_id=db_user.application_id)
         if existing_user and existing_user.id != user_id:
             raise HTTPException(
                 status_code=409, detail=get_translation("user_with_email_exists", language)

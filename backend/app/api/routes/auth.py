@@ -37,6 +37,7 @@ from app.utils import (
     generate_email_verification_otp,
     send_email,
     verify_password_reset_token,
+    extract_real_email,
 )
 
 router = APIRouter()
@@ -80,20 +81,23 @@ def login(
                 session.delete(existing_otp)
                 session.commit()
                 
-            otp = OTP.generate(email=form_data.username, user_id=str(user.id))
+            # Extract real email for OTP generation
+            real_email = extract_real_email(user.email)
+            otp = OTP.generate(email=real_email, user_id=str(user.id))
             session.add(otp)
             session.commit()
             session.refresh(otp)
 
-        # Send verification email with localized subject
+        # Send verification email with localized subject using real email
+        real_email = extract_real_email(user.email)
         email_data = generate_email_verification_otp(
-            email_to=form_data.username, 
+            email_to=real_email, 
             otp=otp.code,
             deeplink=f"{application.app_deeplink_url}/verify/{otp.code}",
             language=language  
         )
         send_email(
-            email_to=form_data.username,
+            email_to=real_email,
             subject=email_data.subject,
             html_content=email_data.html_content,
         )
@@ -166,9 +170,11 @@ def google_login(
         )
     elif not user.is_verified:
         # Create and send a new Verification for verification since login failed due to unverified account
+        # Extract real email for verification
+        real_email = extract_real_email(user.email)
         verification = Verification.generate(
             application_id=application.id,
-            email=user_google.email, 
+            email=real_email, 
             user_id=str(user.id)
         )
         session.add(verification)
@@ -176,13 +182,13 @@ def google_login(
         
         # Send verification email with localized subject
         email_data = generate_email_verification_otp(
-            email_to=user_google.email, 
+            email_to=real_email, 
             otp=verification.code,
             deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
             language=language  
         )
         send_email(
-            email_to=user_google.email,
+            email_to=real_email,
             subject=email_data.subject,
             html_content=email_data.html_content,
         )
@@ -273,9 +279,11 @@ def refresh_access_token(
         )
     elif not user.is_verified:
         # Create and send a new Verification for verification since token refresh failed due to unverified account
+        # Extract real email for verification
+        real_email = extract_real_email(user.email)
         verification = Verification.generate(
             application_id=application.id,
-            email=user.email, 
+            email=real_email, 
             user_id=str(user.id)
         )
         session.add(verification)
@@ -283,13 +291,13 @@ def refresh_access_token(
         
         # Send verification email with localized subject
         email_data = generate_email_verification_otp(
-            email_to=user.email, 
+            email_to=real_email, 
             otp=verification.code,
             deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
             language=language  
         )
         send_email(
-            email_to=user.email,
+            email_to=real_email,
             subject=email_data.subject,
             html_content=email_data.html_content,
         )
@@ -382,7 +390,10 @@ def register(
     if user_create.credit == 10:  # This is the default from the model
         user_create.credit = application.default_user_credit
     
-    # Create the new user
+    # Store original email for sending verification
+    real_email = user_create.email
+    
+    # Create the new user (the create_user function will handle email prefixing)
     new_user = crud.create_user(session=session, user_create=user_create, application_id=application.id)
 
     # Give credits to inviter if invitation is valid
@@ -399,7 +410,7 @@ def register(
     # Create and send Verification for email verification
     verification = Verification.generate(
         application_id=application.id,
-        email=user_create.email, 
+        email=real_email,  # Use real email for the verification record
         user_id=str(new_user.id)
     )
     session.add(verification)
@@ -407,13 +418,13 @@ def register(
     
     # Send verification email
     email_data = generate_email_verification_otp(
-        email_to=user_create.email, 
+        email_to=real_email,  # Send to real email
         otp=verification.code,
         deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
         language=language  
     )
     send_email(
-        email_to=user_create.email,
+        email_to=real_email,  # Send to real email
         subject=email_data.subject,
         html_content=email_data.html_content,
     )
@@ -515,8 +526,8 @@ def verify_email_resend(
             detail=get_translation("user_not_found", language)
         )
     
-    # Get user's email from their record
-    email = user.email
+    # Extract real email from user record
+    real_email = extract_real_email(user.email)
     
     # If user is already verified, don't create a new Verification
     if user.is_verified:
@@ -534,7 +545,7 @@ def verify_email_resend(
     # Generate new Verification
     new_verification = Verification.generate(
         application_id=application.id,
-        email=email, 
+        email=real_email,  # Use real email
         user_id=renew.user_id
     )
     session.add(new_verification)
@@ -542,13 +553,13 @@ def verify_email_resend(
     
     # Send verification email with localized subject
     email_data = generate_email_verification_otp(
-        email_to=email, 
+        email_to=real_email,  # Send to real email
         otp=new_verification.code,
         deeplink=f"{application.app_deeplink_url}/verify/{new_verification.code}",
         language=language  
     )
     send_email(
-        email_to=email,
+        email_to=real_email,  # Send to real email
         subject=email_data.subject,
         html_content=email_data.html_content,
     )
@@ -577,6 +588,9 @@ def recover_password(
             detail=get_translation("user_not_found", language),
         )
     
+    # Extract real email from user record
+    real_email = extract_real_email(user.email)
+    
     # Delete any existing unused reset tokens for this user
     statement = select(ResetPasswordToken).where(
         ResetPasswordToken.user_id == str(user.id),
@@ -591,7 +605,7 @@ def recover_password(
     # Generate new reset password token
     reset_token = ResetPasswordToken.generate(
         application_id=application.id,
-        email=password_recovery_request.email,
+        email=real_email,  # Use real email
         user_id=str(user.id),
         expiration_hours=settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS
     )
@@ -601,15 +615,15 @@ def recover_password(
     
     # Generate email with reset token
     email_data = generate_reset_password_email(
-        email_to=password_recovery_request.email, 
-        email=password_recovery_request.email, 
+        email_to=real_email,  # Send to real email
+        email=real_email,  # Use real email in template
         token=reset_token.token,  # Use the 6-digit token
         deeplink=f"{application.app_deeplink_url}/reset-password/{reset_token.token}",
         language=language
     )
     
     send_email(
-        email_to=password_recovery_request.email,
+        email_to=real_email,  # Send to real email
         subject=email_data.subject,
         html_content=email_data.html_content,
     )
@@ -714,11 +728,13 @@ def recover_password_html_content(
             detail=get_translation("user_not_found", language),
         )
     
-    email = user.email
-    password_reset_token = generate_password_reset_token(email=email)
+    # Extract real email from user record
+    real_email = extract_real_email(user.email)
+    
+    password_reset_token = generate_password_reset_token(email=real_email)
     email_data = generate_reset_password_email(
-        email_to=email, 
-        email=email, 
+        email_to=real_email,  # Use real email
+        email=real_email,  # Use real email in template
         token=password_reset_token,
         deeplink=f"{application.app_deeplink_url}/reset-password/{password_reset_token}",
         language=language
@@ -769,6 +785,9 @@ def invite_friend(
         # Return the existing invitation instead of creating a new one
         return existing_invite
     
+    # Extract real email from current user
+    current_user_real_email = extract_real_email(current_user.email)
+    
     # Create a new invitation
     invitation = Invitation.generate(
         application_id=application.id,
@@ -786,8 +805,8 @@ def invite_friend(
     # Send invitation email with localized subject
     email_data = generate_invite_friend_email(
         email_to=invite_create.email_to,
-        username=current_user.email,
-        inviter_name=current_user.email,
+        username=current_user_real_email,
+        inviter_name=current_user_real_email,
         deeplink=deeplink,
         language=language  
     )

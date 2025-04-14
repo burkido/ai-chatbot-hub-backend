@@ -16,10 +16,13 @@ import {
   Spinner,
   Button,
   ButtonGroup,
+  Alert,
+  AlertIcon,
   useColorModeValue
 } from "@chakra-ui/react"
 import { UsersService } from "../../client/services"
-import { UserStatistics, ApplicationUserStats } from "../../client/models"
+import { UserStatistics, ApplicationUserStats, UserPublic } from "../../client/models"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   LineChart,
   Line,
@@ -47,11 +50,15 @@ interface ChartData {
 
 export const UserStats = () => {
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [statistics, setStatistics] = useState<UserStatistics | null>(null)
   const [selectedPeriod, setSelectedPeriod] = useState<keyof typeof TIME_PERIODS>("30d")
   const [timelapseActive, setTimelapseActive] = useState(false)
   const [timelapseIndex, setTimelapseIndex] = useState(0)
   const [chartData, setChartData] = useState<ChartData[]>([])
+  
+  const queryClient = useQueryClient()
+  const currentUser = queryClient.getQueryData<UserPublic>(["currentUser"])
   
   const cardBg = useColorModeValue("white", "gray.700")
   const borderColor = useColorModeValue("gray.200", "gray.600")
@@ -59,6 +66,7 @@ export const UserStats = () => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
+      setError(null)
       try {
         const days = TIME_PERIODS[selectedPeriod]
         // Calculate start date based on selected period
@@ -78,6 +86,7 @@ export const UserStats = () => {
         }
       } catch (error) {
         console.error("Error fetching user statistics:", error)
+        setError("Failed to load statistics. Please try again later.")
       } finally {
         setLoading(false)
       }
@@ -176,7 +185,7 @@ export const UserStats = () => {
       >
         <CardHeader>
           <Flex justifyContent="space-between" alignItems="center">
-            <Heading size="md">User Statistics</Heading>
+            <Heading size="md">{currentUser?.is_superuser ? "User Statistics" : "Application Statistics"}</Heading>
             <ButtonGroup size="sm" isAttached variant="outline">
               {Object.keys(TIME_PERIODS).map((period) => (
                 <Button
@@ -195,13 +204,18 @@ export const UserStats = () => {
             <Flex justifyContent="center" alignItems="center" height="200px">
               <Spinner />
             </Flex>
+          ) : error ? (
+            <Alert status="error">
+              <AlertIcon />
+              {error}
+            </Alert>
           ) : statistics ? (
             <>
               <Grid templateColumns={{ base: "1fr", md: "repeat(3, 1fr)" }} gap={4} mb={6}>
                 <Stat>
                   <StatLabel>Total Users</StatLabel>
                   <StatNumber>{statistics.total_users.toLocaleString()}</StatNumber>
-                  <StatHelpText>Across all applications</StatHelpText>
+                  <StatHelpText>{currentUser?.is_superuser ? "Across all applications" : "In your application"}</StatHelpText>
                 </Stat>
                 
                 <Stat textAlign={{ base: "left", md: "center" }}>

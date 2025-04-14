@@ -7,7 +7,7 @@ import uuid
 
 class UserBase(SQLModel):
     """Base schema for user data"""
-    email: EmailStr = Field(max_length=255)
+    email: str = Field(max_length=255)
     is_active: bool = True
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
@@ -36,7 +36,7 @@ class UserRegister(SQLModel):
 
 class UserUpdate(UserBase):
     """Schema for updating user data"""
-    email: EmailStr | None = Field(default=None, max_length=255)
+    email: str | None = Field(default=None, max_length=255)
     password: str | None = Field(default=None, min_length=8, max_length=40)
 
 

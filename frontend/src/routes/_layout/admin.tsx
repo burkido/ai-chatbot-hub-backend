@@ -8,6 +8,10 @@ import {
   Input,
   InputGroup,
   InputLeftElement,
+  Menu,
+  MenuButton,
+  MenuItem,
+  MenuList,
   SkeletonText,
   Table,
   TableContainer,
@@ -17,7 +21,7 @@ import {
   Thead,
   Tr,
 } from "@chakra-ui/react"
-import { SearchIcon } from "@chakra-ui/icons"
+import { SearchIcon, ChevronDownIcon } from "@chakra-ui/icons"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
@@ -40,13 +44,19 @@ export const Route = createFileRoute("/_layout/admin")({
 
 const PER_PAGE = 5
 
+// Predefined application packages for quick selection
+const PREDEFINED_APPS = [
+  { name: "Psychologist AI", key: "com.burkido.psychologistai" },
+  { name: "Medicine AI", key: "com.burkido.medicineai" },
+]
+
 function getUsersQueryOptions({ page, applicationKey }: { page: number, applicationKey?: string }) {
   return {
     queryFn: () =>
       UsersService.readUsers({ 
         skip: (page - 1) * PER_PAGE, 
         limit: PER_PAGE,
-        application_key: applicationKey
+        application_key: applicationKey,
       }),
     queryKey: ["users", { page, applicationKey }],
   }
@@ -106,9 +116,20 @@ function UsersTable() {
     })
   }
 
+  const handlePredefinedAppSelect = (key: string) => {
+    setSearchInput(key)
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        applicationKey: key,
+        page: 1,
+      }),
+    })
+  }
+
   return (
     <>
-      <Flex my={4} gap={2}>
+      <Flex my={4} gap={2} wrap="wrap">
         <InputGroup maxW="md">
           <InputLeftElement pointerEvents="none">
             <SearchIcon color="gray.300" />
@@ -126,6 +147,18 @@ function UsersTable() {
             Clear Filter
           </Button>
         )}
+        <Menu>
+          <MenuButton as={Button} rightIcon={<ChevronDownIcon />}>
+            Predefined Apps
+          </MenuButton>
+          <MenuList>
+            {PREDEFINED_APPS.map((app) => (
+              <MenuItem key={app.key} onClick={() => handlePredefinedAppSelect(app.key)}>
+                {app.name}
+              </MenuItem>
+            ))}
+          </MenuList>
+        </Menu>
       </Flex>
       
       <TableContainer>

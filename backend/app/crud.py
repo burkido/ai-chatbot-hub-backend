@@ -10,6 +10,7 @@ from app.models.database.user import User
 from app.models.database.application import Application
 from app.models.schemas.user import UserCreate, UserUpdate
 from app.models.schemas.application import ApplicationCreate, ApplicationUpdate
+from app.utils import prefix_email_with_package, extract_real_email
 
 ModelType = TypeVar("ModelType", bound=SQLModel)
 CreateSchemaType = TypeVar("CreateSchemaType", bound=SQLModel)
@@ -22,7 +23,21 @@ def get_user(session: Session, user_id: str, application_id: uuid.UUID) -> Optio
     return session.exec(statement).first()
 
 def get_user_by_email(session: Session, email: str, application_id: uuid.UUID) -> Optional[User]:
+    # First try direct matching (for backward compatibility)
     statement = select(User).where(User.email == email, User.application_id == application_id)
+    user = session.exec(statement).first()
+    
+    if user:
+        return user
+    
+    # If not found, try to get the application's package_name
+    application = session.get(Application, application_id)
+    if not application:
+        return None
+        
+    # Try with prefixed email
+    prefixed_email = prefix_email_with_package(email, application.package_name)
+    statement = select(User).where(User.email == prefixed_email, User.application_id == application_id)
     return session.exec(statement).first()
 
 def get_user_by_google_id(session: Session, google_id: str, application_id: uuid.UUID) -> Optional[User]:
@@ -44,6 +59,19 @@ def create_user(*, session: Session, user_create: UserCreate, application_id: uu
     # Add application_id to user data
     user_create_dict = user_create.model_dump()
     user_create_dict["application_id"] = application_id
+    
+    # Get the application for its package_name
+    application = session.get(Application, application_id)
+    if not application:
+        raise ValueError("Application not found")
+    
+    # Store the real email temporarily
+    real_email = user_create_dict["email"]
+    
+    # Prefix the email with the application's package_name
+    user_create_dict["email"] = prefix_email_with_package(real_email, application.package_name)
+    
+    # Create the user with the prefixed email
     db_obj = User.model_validate(user_create_dict, update={"hashed_password": get_password_hash(user_create.password)})
     
     session.add(db_obj)
@@ -62,6 +90,20 @@ def update_user(session: Session, db_obj: User, user_in: Union[UserUpdate, Dict[
     password = update_data.pop("password", None)
     if password is not None:
         update_data["hashed_password"] = get_password_hash(password)
+    
+    # Handle email updates with prefixing if needed
+    email = update_data.pop("email", None)
+    if email is not None:
+        # Get the application for its package_name
+        application = session.get(Application, db_obj.application_id)
+        if application:
+            # Check if this is already a prefixed email (contains package_name+)
+            if email.startswith(f"{application.package_name}+"):
+                # Use as is - already prefixed
+                update_data["email"] = email
+            else:
+                # Prefix the email
+                update_data["email"] = prefix_email_with_package(email, application.package_name)
     
     # Update all other fields
     for field in obj_data:

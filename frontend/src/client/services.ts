@@ -163,6 +163,7 @@ export type TDataReadUsers = {
   limit?: number
   skip?: number
   application_key?: string
+  show_all?: boolean
 }
 export type TDataCreateUser = {
   requestBody: UserCreate
@@ -201,14 +202,15 @@ export class UsersService {
   public static readUsers(
     data: TDataReadUsers = {},
   ): CancelablePromise<UsersPublic> {
-    const { limit = 100, skip = 0, application_key } = data
+    const { limit = 100, skip = 0, application_key, show_all } = data
     return __request(OpenAPI, {
       method: "GET",
       url: "/api/v1/users/",
       query: {
         skip,
         limit,
-        application_key
+        application_key,
+        show_all
       },
       errors: {
         422: `Validation Error`,

@@ -1,10 +1,8 @@
-import os, json, fitz, logging
+import os, json, fitz, logging, jwt
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, TypedDict, Optional
-import emails  # type: ignore
-import jwt
+from typing import Any, TypedDict
 from jinja2 import Template
 from jwt.exceptions import InvalidTokenError
 
@@ -220,3 +218,25 @@ class Parser:
             'source': self.source,
             'metadata': metadata
         }
+
+def prefix_email_with_package(email: str, package_name: str) -> str:
+    """
+    Prefixes an email with the application package name.
+    Example: prefix_email_with_package("user@example.com", "com.app.test") -> "com.app.test+user@example.com"
+    """
+    username, domain = email.split("@")
+    return f"{package_name}+{username}@{domain}"
+
+def extract_real_email(prefixed_email: str) -> str:
+    """
+    Extracts the real email from a prefixed email.
+    Example: extract_real_email("com.app.test+user@example.com") -> "user@example.com"
+    """
+    if "+" not in prefixed_email:
+        return prefixed_email
+        
+    parts = prefixed_email.split("+", 1)
+    if len(parts) != 2:
+        return prefixed_email
+        
+    return parts[1]
