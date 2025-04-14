@@ -36,9 +36,20 @@ def authentication_token_from_email(
     If the user doesn't exist it is created first.
     """
     password = random_lower_string()
-    user = crud.get_user_by_email(session=db, email=email)
+    # Get application ID for tests
+    from uuid import UUID
+    from app.models.database.application import Application
+    from sqlmodel import select
+    
+    # Get the first application in the database for testing purposes
+    statement = select(Application)
+    application = db.exec(statement).first()
+    if not application:
+        raise Exception("No application found in database for testing")
+    
+    user = crud.get_user_by_email(session=db, email=email, application_id=application.id)
     if not user:
-        user_in_create = UserCreate(email=email, password=password)
+        user_in_create = UserCreate(email=email, password=password, application_id=application.id)
         user = crud.create_user(session=db, user_create=user_in_create)
     else:
         user_in_update = UserUpdate(password=password)

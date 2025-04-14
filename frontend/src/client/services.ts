@@ -6,6 +6,7 @@ import type {
   Body_login_login_access_token,
   Message,
   NewPassword,
+  RefreshTokenRequest,
   Token,
   UserPublic,
   UpdatePassword,
@@ -17,6 +18,7 @@ import type {
   DocumentCreate,
   UploadDocumentResponse,
   DeleteDocumentResponse,
+  UserStatistics,
 } from "./models"
 
 export type TDataLoginAccessToken = {
@@ -30,6 +32,9 @@ export type TDataResetPassword = {
 }
 export type TDataRecoverPasswordHtmlContent = {
   email: string
+}
+export type TDataRefreshAccessToken = {
+  requestBody: RefreshTokenRequest
 }
 
 export class LoginService {
@@ -48,6 +53,27 @@ export class LoginService {
       url: "/api/v1/auth/login",
       formData: formData,
       mediaType: "application/x-www-form-urlencoded",
+      errors: {
+        422: `Validation Error`,
+      },
+    })
+  }
+
+  /**
+   * Refresh Access Token
+   * Get a new access token using refresh token
+   * @returns Token Successful Response
+   * @throws ApiError
+   */
+  public static refreshAccessToken(
+    data: TDataRefreshAccessToken,
+  ): CancelablePromise<Token> {
+    const { requestBody } = data
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/api/v1/auth/refresh-token",
+      body: requestBody,
+      mediaType: "application/json",
       errors: {
         422: `Validation Error`,
       },
@@ -136,6 +162,8 @@ export class LoginService {
 export type TDataReadUsers = {
   limit?: number
   skip?: number
+  application_key?: string
+  show_all?: boolean
 }
 export type TDataCreateUser = {
   requestBody: UserCreate
@@ -159,6 +187,10 @@ export type TDataUpdateUser = {
 export type TDataDeleteUser = {
   userId: string
 }
+export type TDataGetUserStatistics = {
+  start_date?: string
+  end_date?: string
+}
 
 export class UsersService {
   /**
@@ -170,13 +202,15 @@ export class UsersService {
   public static readUsers(
     data: TDataReadUsers = {},
   ): CancelablePromise<UsersPublic> {
-    const { limit = 100, skip = 0 } = data
+    const { limit = 100, skip = 0, application_key, show_all } = data
     return __request(OpenAPI, {
       method: "GET",
       url: "/api/v1/users/",
       query: {
         skip,
         limit,
+        application_key,
+        show_all
       },
       errors: {
         422: `Validation Error`,
@@ -354,6 +388,32 @@ export class UsersService {
       path: {
         user_id: userId,
       },
+      errors: {
+        422: `Validation Error`,
+      },
+    })
+  }
+
+  /**
+   * Get User Statistics
+   * Get user statistics including counts per application and historical data.
+   * @returns UserStatistics Successful Response
+   * @throws ApiError
+   */
+  public static getUserStatistics(
+    data: TDataGetUserStatistics = {},
+  ): CancelablePromise<UserStatistics> {
+    const { start_date, end_date } = data;
+    
+    // Ensure dates are in YYYY-MM-DD format without time components
+    const params: Record<string, string> = {};
+    if (start_date) params.start_date = start_date.split('T')[0];
+    if (end_date) params.end_date = end_date.split('T')[0];
+    
+    return __request(OpenAPI, {
+      method: "GET",
+      url: "/api/v1/users/user-statistics",
+      query: params,
       errors: {
         422: `Validation Error`,
       },

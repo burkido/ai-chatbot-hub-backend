@@ -6,14 +6,27 @@ import { routeTree } from "./routeTree.gen"
 
 import { StrictMode } from "react"
 import { OpenAPI } from "./client"
+import TokenService from "./utils/tokenService"
 import theme from "./theme"
+import { configureApiClient } from "./client/clientConfig"
 
+// Configure OpenAPI base URL from environment
 OpenAPI.BASE = import.meta.env.VITE_API_URL
-OpenAPI.TOKEN = async () => {
-  return localStorage.getItem("access_token") || ""
-}
 
-const queryClient = new QueryClient()
+// Use TokenService for authentication
+OpenAPI.TOKEN = async () => TokenService.getAccessToken() || ""
+
+// Initialize the API client with interceptors
+configureApiClient()
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1, // Default retry once
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
 const router = createRouter({ routeTree })
 declare module "@tanstack/react-router" {

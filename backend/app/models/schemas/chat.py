@@ -21,5 +21,5 @@ class ChatResponse(BaseModel):
     content: str
     title: str | None = None
     sources: List[Dict[str, Any]] | None = None  # Metadata about sources
-    remaining_credit: int | None = None  # User's remaining credit
-    is_credit_sufficient: bool = True  # Credit sufficiency flag
+    remaining_credit: int | None = None
+    is_credit_sufficient: bool = True

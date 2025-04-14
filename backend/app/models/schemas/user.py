@@ -1,12 +1,13 @@
-from typing import List
-from pydantic import EmailStr
+from typing import List, Dict, Optional
+from datetime import datetime
+from pydantic import EmailStr, BaseModel
 from sqlmodel import Field, SQLModel
 import uuid
 
 
 class UserBase(SQLModel):
     """Base schema for user data"""
-    email: EmailStr = Field(max_length=255)
+    email: str = Field(max_length=255)
     is_active: bool = True
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
@@ -15,11 +16,15 @@ class UserBase(SQLModel):
     is_verified: bool = False
 
 
-class UserCreate(UserBase):
-    """Schema for creating a new user"""
-    password: str = Field(min_length=8, max_length=40)
-    invite_code: str | None = Field(default=None)
-    inviter_id: str | None = Field(default=None)
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    is_superuser: bool = False
+    is_active: bool = True
+    is_verified: bool = False
+    credit: int = 10
+    invite_code: Optional[str] = None
+    inviter_id: Optional[str] = None
 
 
 class UserRegister(SQLModel):
@@ -31,7 +36,7 @@ class UserRegister(SQLModel):
 
 class UserUpdate(UserBase):
     """Schema for updating user data"""
-    email: EmailStr | None = Field(default=None, max_length=255)
+    email: str | None = Field(default=None, max_length=255)
     password: str | None = Field(default=None, min_length=8, max_length=40)
 
 
@@ -66,6 +71,7 @@ class UsersPublic(SQLModel):
 class UserGoogleLogin(SQLModel):
     """Schema for Google login"""
     email: EmailStr
+    google_id: str
 
 
 class RegisterResponse(SQLModel):
@@ -76,3 +82,28 @@ class RegisterResponse(SQLModel):
 class CreditAddRequest(SQLModel):
     """Schema for credit addition request"""
     amount: int = Field(gt=0, lt=10)
+
+class PasswordRecovery(SQLModel):
+    user_id: str
+
+class PasswordRecoveryRequest(SQLModel):
+    """Schema for password recovery request"""
+    email: EmailStr
+
+class UserStatPoint(SQLModel):
+    """Schema for a single user statistics data point"""
+    date: str
+    count: int
+
+
+class ApplicationUserStats(SQLModel):
+    """Schema for user statistics for a single application"""
+    application_name: str
+    data_points: List[UserStatPoint]
+    current_count: int
+
+
+class UserStatistics(SQLModel):
+    """Schema for user statistics response"""
+    total_users: int
+    by_application: List[ApplicationUserStats]

@@ -1,5 +1,6 @@
 import uuid
-from datetime import datetime, timezone
+import secrets
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from sqlmodel import Field, SQLModel
 
@@ -11,6 +12,7 @@ class Invitation(SQLModel, table=True):
         primary_key=True,
         index=True,
     )
+    application_id: uuid.UUID = Field(index=True, foreign_key="application.id")
     inviter_id: uuid.UUID = Field(index=True)
     email_to: str = Field(index=True)
     code: str = Field(index=True)
@@ -29,3 +31,18 @@ class Invitation(SQLModel, table=True):
         """Mark the invitation as used"""
         self.is_used = True
         self.used_at = datetime.now(timezone.utc)
+    
+    @classmethod
+    def generate(cls, application_id: uuid.UUID, email_to: str, inviter_id: uuid.UUID, expiration_days: int = 7) -> "Invitation":
+        """Generate a new invitation with specified expiration time"""
+        # Generate a unique code for the invitation
+        invite_code = secrets.token_urlsafe(16)
+        expires_at = datetime.now(timezone.utc) + timedelta(days=expiration_days)
+        
+        return cls(
+            application_id=application_id,
+            email_to=email_to,
+            inviter_id=inviter_id,
+            code=invite_code,
+            expires_at=expires_at
+        )

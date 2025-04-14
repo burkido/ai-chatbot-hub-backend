@@ -1,4 +1,5 @@
 from sqlmodel import SQLModel, Field
+import uuid
 
 class Token(SQLModel):
     access_token: str
@@ -13,6 +14,7 @@ class RefreshTokenRequest(SQLModel):
 
 class TokenPayload(SQLModel):
     sub: str | None = None
+    app: str | None = None  # Stores application_id
 
 class NewPassword(SQLModel):
     token: str

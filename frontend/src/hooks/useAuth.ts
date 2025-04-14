@@ -12,20 +12,24 @@ import {
   UsersService,
 } from "../client"
 import useCustomToast from "./useCustomToast"
+import { saveApplicationKey } from "../utils/applicationKey"
+import TokenService from "../utils/tokenService"
 
-const isLoggedIn = () => {
-  return localStorage.getItem("access_token") !== null
-}
+const isLoggedIn = () => TokenService.isLoggedIn();
 
 const useAuth = () => {
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
   const showToast = useCustomToast()
   const queryClient = useQueryClient()
+  
+  // This query will use our axios interceptor for token refresh as needed
   const { data: user, isLoading } = useQuery<UserPublic | null, Error>({
     queryKey: ["currentUser"],
     queryFn: UsersService.readUserMe,
     enabled: isLoggedIn(),
+    // Don't use custom retry logic here since the axios interceptor handles it
+    retry: false,
   })
 
   const signUpMutation = useMutation({
@@ -54,15 +58,29 @@ const useAuth = () => {
     },
   })
 
-  const login = async (data: AccessToken) => {
+  const login = async (data: AccessToken, applicationKey?: string) => {
+    // First, if we have an application key, store it before the login request
+    if (applicationKey) {
+      saveApplicationKey(applicationKey)
+    }
+    
+    // Reset any previously attempted token refresh state
+    TokenService.resetRefreshState();
+    
+    // Then make the standard login request (the interceptor will add the application key)
     const response = await LoginService.loginAccessToken({
-      formData: data,
+      formData: data
     })
-    localStorage.setItem("access_token", response.access_token)
+    
+    // Store all token information
+    TokenService.saveTokens(response);
+    
+    return response
   }
 
   const loginMutation = useMutation({
-    mutationFn: login,
+    mutationFn: ({credentials, applicationKey}: {credentials: AccessToken, applicationKey?: string}) => 
+      login(credentials, applicationKey),
     onSuccess: () => {
       navigate({ to: "/" })
     },
@@ -82,7 +100,7 @@ const useAuth = () => {
   })
 
   const logout = () => {
-    localStorage.removeItem("access_token")
+    TokenService.clearTokens();
     navigate({ to: "/login" })
   }
 
