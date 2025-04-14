@@ -210,7 +210,7 @@ export class UsersService {
         skip,
         limit,
         application_key,
-        show_all
+        show_all,
       },
       errors: {
         422: `Validation Error`,
@@ -403,13 +403,13 @@ export class UsersService {
   public static getUserStatistics(
     data: TDataGetUserStatistics = {},
   ): CancelablePromise<UserStatistics> {
-    const { start_date, end_date } = data;
-    
+    const { start_date, end_date } = data
+
     // Ensure dates are in YYYY-MM-DD format without time components
-    const params: Record<string, string> = {};
-    if (start_date) params.start_date = start_date.split('T')[0];
-    if (end_date) params.end_date = end_date.split('T')[0];
-    
+    const params: Record<string, string> = {}
+    if (start_date) params.start_date = start_date.split("T")[0]
+    if (end_date) params.end_date = end_date.split("T")[0]
+
     return __request(OpenAPI, {
       method: "GET",
       url: "/api/v1/users/user-statistics",
