@@ -72,6 +72,14 @@ services:
       - "8091:80"
     volumes:
       - ./well-known:/usr/share/nginx/html/.well-known
+      
+  # Add legal-site service for local testing
+  legal-site:
+    restart: "no"
+    ports:
+      - "8092:80"
+    volumes:
+      - ./static-site:/usr/share/nginx/html
 
 networks:
   traefik-public:
