@@ -60,7 +60,7 @@ def send_email(
     )
     
     # Log the response
-    print(f"Mailgun API response: {response.status_code} - {response.text}")
+    print(f"Mailgun API response: {response.status_code} - {response.text} - Sending email to {email_to}")
     logging.info(f"send email result: {response.status_code} - {response.text}")
     
     # Raise an exception if the request failed
