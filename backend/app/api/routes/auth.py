@@ -146,13 +146,13 @@ def google_login(
     # If user exists, verify their Google ID
     if user:
         # Check if user has a google_id and it matches
-        if hasattr(user, 'google_id') and user.google_id and user.google_id != user_google.google_id:
+        if user.google_id and user.google_id != user_google.google_id:
             raise HTTPException(
                 status_code=401, 
                 detail=get_translation("invalid_google_credentials", language)  
             )
         # If user doesn't have a google_id yet, update it
-        elif not hasattr(user, 'google_id') or not user.google_id:
+        elif not user.google_id:
             user.google_id = user_google.google_id
             session.add(user)
             session.commit()
@@ -162,17 +162,21 @@ def google_login(
         # Set credit to application default
         credit = application.default_user_credit
         
-        # Create user with Google credentials - mark as verified immediately for direct login
-        user = User(
+        # Create a UserCreate object from the Google login data
+        user_create = UserCreate(
             email=user_google.email,
-            google_id=user_google.google_id,
-            full_name=user_google.full_name if hasattr(user_google, 'full_name') else "",
-            credit=credit,
+            password="",  # No password needed for Google login
+            full_name=user_google.full_name,  # Now using the field directly
             is_active=True,
             is_verified=True,  # Mark as verified immediately
-            is_superuser=False,
-            application_id=application.id
+            credit=credit
         )
+        
+        # Create the user with the crud function that handles email prefixing
+        user = crud.create_user(session=session, user_create=user_create, application_id=application.id)
+        
+        # Set the Google ID after creation
+        user.google_id = user_google.google_id
         session.add(user)
         session.commit()
         session.refresh(user)

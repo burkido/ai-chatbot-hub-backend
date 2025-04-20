@@ -25,6 +25,7 @@ class UserCreate(BaseModel):
     credit: int = 10
     invite_code: Optional[str] = None
     inviter_id: Optional[str] = None
+    full_name: Optional[str] = None
 
 
 class UserRegister(SQLModel):
@@ -79,6 +80,7 @@ class UserGoogleLogin(SQLModel):
     """Schema for Google login"""
     email: EmailStr
     google_id: str
+    full_name: str | None
 
 
 class RegisterResponse(SQLModel):
