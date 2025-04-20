@@ -158,10 +158,24 @@ def google_login(
             session.commit()
             session.refresh(user)
     else:
-        raise HTTPException(
-            status_code=404, 
-            detail=get_translation("user_not_found", language)  
+        # Instead of returning an error, create a new account
+        # Set credit to application default
+        credit = application.default_user_credit
+        
+        # Create user with Google credentials - mark as verified immediately for direct login
+        user = User(
+            email=user_google.email,
+            google_id=user_google.google_id,
+            full_name=user_google.full_name if hasattr(user_google, 'full_name') else "",
+            credit=credit,
+            is_active=True,
+            is_verified=True,  # Mark as verified immediately
+            is_superuser=False,
+            application_id=application.id
         )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
     
     if not user.is_active:
         raise HTTPException(
