@@ -182,35 +182,13 @@ def google_login(
             status_code=400, 
             detail=get_translation("inactive_user", language)  
         )
-    elif not user.is_verified:
-        # Create and send a new Verification for verification since login failed due to unverified account
-        # Extract real email for verification
-        real_email = extract_real_email(user.email)
-        verification = Verification.generate(
-            application_id=application.id,
-            email=real_email, 
-            user_id=str(user.id)
-        )
-        session.add(verification)
+    
+    # Always mark user as verified for Google login
+    if not user.is_verified:
+        user.is_verified = True
+        session.add(user)
         session.commit()
-        
-        # Send verification email with localized subject
-        email_data = generate_email_verification_otp(
-            email_to=real_email, 
-            otp=verification.code,
-            deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
-            language=language  
-        )
-        send_email(
-            email_to=real_email,
-            subject=email_data.subject,
-            html_content=email_data.html_content,
-        )
-        
-        raise HTTPException(
-            status_code=403, 
-            detail=get_translation("account_not_verified", language)  
-        )
+        session.refresh(user)
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
@@ -510,17 +488,23 @@ def google_register(
     # Store original email for sending verification
     real_email = user_google.email
     
-    # Create user with Google credentials - mark as verified immediately for direct login
-    new_user = User(
+    # Create a UserCreate object from the Google registration data
+    user_create = UserCreate(
         email=user_google.email,
-        google_id=user_google.google_id,
+        password="",  # No password needed for Google login
         full_name=user_google.full_name,
-        credit=credit,
         is_active=True,
-        is_verified=True,  # Mark as verified immediately
-        is_superuser=False,
-        application_id=application.id
+        is_verified=True,  # Google users are pre-verified
+        credit=credit,
+        invite_code=user_google.invite_code,
+        inviter_id=user_google.inviter_id
     )
+    
+    # Create the user with the crud function that handles email prefixing
+    new_user = crud.create_user(session=session, user_create=user_create, application_id=application.id)
+    
+    # Set the Google ID after creation
+    new_user.google_id = user_google.google_id
     session.add(new_user)
     session.commit()
     session.refresh(new_user)
@@ -946,7 +930,6 @@ def invite_friend(
     
     return invitation
 
-
 @router.get("/invite/{code}", response_model=InviteCheck)
 def check_invite(
     code: str,
@@ -989,7 +972,6 @@ def check_invite(
         email_to=invitation.email_to,
         expires_at=invitation.expires_at
     )
-
 
 @router.get("/invites/by-user/{user_id}", response_model=List[InviteResponse])
 def get_user_invites(
