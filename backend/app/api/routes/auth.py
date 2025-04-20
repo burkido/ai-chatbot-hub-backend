@@ -431,15 +431,15 @@ def register(
     
     return RegisterResponse(id=str(new_user.id))
 
-@router.post("/register-google", response_model=RegisterResponse)
+@router.post("/register-google", response_model=Token)
 def google_register(
     session: SessionDep,
     user_google: UserGoogleRegister,
     language: LanguageDep,
     application: ApplicationDep
-) -> RegisterResponse:
+) -> Token:
     """
-    Register a new user with Google credentials and optional invite logic
+    Register a new user with Google credentials, optional invite logic, and returns a token for immediate login
     """
     # Check if this email is already registered with this application
     user = crud.get_user_by_email(
@@ -496,14 +496,14 @@ def google_register(
     # Store original email for sending verification
     real_email = user_google.email
     
-    # Create user with Google credentials
+    # Create user with Google credentials - mark as verified immediately for direct login
     new_user = User(
         email=user_google.email,
         google_id=user_google.google_id,
         full_name=user_google.full_name,
         credit=credit,
         is_active=True,
-        is_verified=False,  # Still require email verification
+        is_verified=True,  # Mark as verified immediately
         is_superuser=False,
         application_id=application.id
     )
@@ -523,29 +523,25 @@ def google_register(
             session.add(inviter_user)
             session.commit()
     
-    # Create and send Verification for email verification
-    verification = Verification.generate(
-        application_id=application.id,
-        email=real_email,
-        user_id=str(new_user.id)
+    # Generate tokens for immediate login
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    return Token(
+        access_token=security.create_access_token(
+            new_user.id, 
+            application.id,
+            expires_delta=access_token_expires
+        ),
+        refresh_token=security.create_refresh_token(
+            new_user.id, 
+            application.id,
+            expires_delta=refresh_token_expires
+        ),
+        user_id=str(new_user.id),
+        is_premium=new_user.is_premium,
+        remaining_credit=new_user.credit
     )
-    session.add(verification)
-    session.commit()
-    
-    # Send verification email
-    email_data = generate_email_verification_otp(
-        email_to=real_email,
-        otp=verification.code,
-        deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
-        language=language  
-    )
-    send_email(
-        email_to=real_email,
-        subject=email_data.subject,
-        html_content=email_data.html_content,
-    )
-    
-    return RegisterResponse(id=str(new_user.id))
 
 @router.post("/verify-email", response_model=VerificationResponse)
 def verify_email(
