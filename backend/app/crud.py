@@ -55,28 +55,30 @@ def get_users(session: Session, application_id: uuid.UUID = None, skip: int = 0,
     return session.exec(statement).all()
 
 def create_user(*, session: Session, user_create: UserCreate, application_id: uuid.UUID) -> User:
-    # Add application_id to user data
-    user_create_dict = user_create.model_dump()
-    user_create_dict["application_id"] = application_id
-    
     # Get the application for its package_name
     application = session.get(Application, application_id)
     if not application:
         raise ValueError("Application not found")
     
-    # Store the real email temporarily
-    real_email = user_create_dict["email"]
+    # Store the real email
+    real_email = user_create.email
     
-    # Prefix the email with the application's package_name
-    user_create_dict["email"] = prefix_email_with_package(real_email, application.package_name)
+    # Create the user object directly using the fields from UserCreate
+    user = User(
+        application_id=application_id,
+        email=prefix_email_with_package(real_email, application.package_name),
+        hashed_password=get_password_hash(user_create.password),
+        is_active=user_create.is_active,
+        is_superuser=user_create.is_superuser,
+        is_verified=user_create.is_verified,
+        full_name=user_create.full_name,
+        credit=user_create.credit
+    )
     
-    # Create the user with the prefixed email
-    db_obj = User.model_validate(user_create_dict, update={"hashed_password": get_password_hash(user_create.password)})
-    
-    session.add(db_obj)
+    session.add(user)
     session.commit()
-    session.refresh(db_obj)
-    return db_obj
+    session.refresh(user)
+    return user
 
 def update_user(session: Session, db_obj: User, user_in: Union[UserUpdate, Dict[str, Any]]) -> User:
     obj_data = jsonable_encoder(db_obj)
