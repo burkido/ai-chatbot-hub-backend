@@ -24,7 +24,7 @@ from app.models.database.invitation import Invitation
 from app.models.database.otp import OTP
 from app.models.database.reset_password_token import ResetPasswordToken
 
-from app.models.schemas.user import UserPublic, UserCreate, UserGoogleLogin, RegisterResponse, PasswordRecoveryRequest
+from app.models.schemas.user import UserPublic, UserCreate, UserGoogleLogin, RegisterResponse, PasswordRecoveryRequest, UserGoogleRegister
 from app.models.schemas.token import Token, RefreshTokenRequest, NewPassword
 from app.models.schemas.message import Message
 from app.models.schemas.verification import VerificationVerify, VerificationResponse, RenewVerification
@@ -425,6 +425,122 @@ def register(
     )
     send_email(
         email_to=real_email,  # Send to real email
+        subject=email_data.subject,
+        html_content=email_data.html_content,
+    )
+    
+    return RegisterResponse(id=str(new_user.id))
+
+@router.post("/register-google", response_model=RegisterResponse)
+def google_register(
+    session: SessionDep,
+    user_google: UserGoogleRegister,
+    language: LanguageDep,
+    application: ApplicationDep
+) -> RegisterResponse:
+    """
+    Register a new user with Google credentials and optional invite logic
+    """
+    # Check if this email is already registered with this application
+    user = crud.get_user_by_email(
+        session=session, 
+        email=user_google.email,
+        application_id=application.id
+    )
+    
+    if user:
+        raise HTTPException(
+            status_code=409,
+            detail=get_translation("user_exists", language),
+        )
+    
+    # Set initial credit value to application default
+    credit = application.default_user_credit
+    
+    # If invited, validate the invitation code
+    if user_google.invite_code and user_google.inviter_id:
+        # Find the invitation
+        statement = (
+            select(Invitation)
+            .where(Invitation.code == user_google.invite_code)
+            .where(Invitation.inviter_id == UUID(user_google.inviter_id))
+            .where(Invitation.application_id == application.id)
+        )
+        invitation = session.exec(statement).first()
+        
+        if not invitation:
+            raise HTTPException(
+                status_code=404, 
+                detail=get_translation("invalid_token", language)
+            )
+        
+        if invitation.is_used:
+            raise HTTPException(
+                status_code=400, 
+                detail=get_translation("invitation_code_used", language)
+            )
+        
+        if invitation.is_expired():
+            raise HTTPException(
+                status_code=400, 
+                detail=get_translation("invitation_code_expired", language)
+            )
+        
+        # Mark invitation as used
+        invitation.consume()
+        session.add(invitation)
+        
+        # Double credits for invited users
+        credit = application.default_user_credit * 2
+    
+    # Store original email for sending verification
+    real_email = user_google.email
+    
+    # Create user with Google credentials
+    new_user = User(
+        email=user_google.email,
+        google_id=user_google.google_id,
+        full_name=user_google.full_name,
+        credit=credit,
+        is_active=True,
+        is_verified=False,  # Still require email verification
+        is_superuser=False,
+        application_id=application.id
+    )
+    session.add(new_user)
+    session.commit()
+    session.refresh(new_user)
+    
+    # Give credits to inviter if invitation is valid
+    if user_google.invite_code and user_google.inviter_id:
+        inviter_user = crud.get_user_by_id(
+            session=session, 
+            user_id=user_google.inviter_id,
+            application_id=application.id
+        )
+        if inviter_user:
+            inviter_user.credit += application.default_user_credit
+            session.add(inviter_user)
+            session.commit()
+    
+    # Create and send Verification for email verification
+    verification = Verification.generate(
+        application_id=application.id,
+        email=real_email,
+        user_id=str(new_user.id)
+    )
+    session.add(verification)
+    session.commit()
+    
+    # Send verification email
+    email_data = generate_email_verification_otp(
+        email_to=real_email,
+        otp=verification.code,
+        deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
+        language=language  
+    )
+    send_email(
+        email_to=real_email,
         subject=email_data.subject,
         html_content=email_data.html_content,
     )

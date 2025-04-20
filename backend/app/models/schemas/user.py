@@ -33,6 +33,13 @@ class UserRegister(SQLModel):
     password: str = Field(min_length=8, max_length=40)
     full_name: str | None = Field(default=None, max_length=255)
 
+class UserGoogleRegister(SQLModel):
+    """Schema for Google registration"""
+    email: EmailStr
+    google_id: str
+    full_name: Optional[str] = None
+    invite_code: Optional[str] = None
+    inviter_id: Optional[str] = None
 
 class UserUpdate(UserBase):
     """Schema for updating user data"""
