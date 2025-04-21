@@ -11,6 +11,7 @@ import sqlmodel.sql.sqltypes
 from sqlalchemy.dialects import postgresql
 import uuid
 
+from app.models.database.application import Application
 
 # revision identifiers, used by Alembic.
 revision = 'd0894736bf88'
