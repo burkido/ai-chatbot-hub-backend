@@ -3,6 +3,7 @@ import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from sqlmodel import Field, SQLModel
+from app.utils import prefix_email_with_package
 
 
 class Invitation(SQLModel, table=True):
@@ -33,15 +34,18 @@ class Invitation(SQLModel, table=True):
         self.used_at = datetime.now(timezone.utc)
     
     @classmethod
-    def generate(cls, application_id: uuid.UUID, email_to: str, inviter_id: uuid.UUID, expiration_days: int = 7) -> "Invitation":
+    def generate(cls, application_id: uuid.UUID, email_to: str, inviter_id: uuid.UUID, expiration_days: int = 7, package_name: Optional[str] = None) -> "Invitation":
         """Generate a new invitation with specified expiration time"""
         # Generate a unique code for the invitation
         invite_code = secrets.token_urlsafe(16)
         expires_at = datetime.now(timezone.utc) + timedelta(days=expiration_days)
         
+        # Apply email prefixing if package_name is provided
+        prefixed_email = prefix_email_with_package(email_to, package_name) if package_name else email_to
+        
         return cls(
             application_id=application_id,
-            email_to=email_to,
+            email_to=prefixed_email,
             inviter_id=inviter_id,
             code=invite_code,
             expires_at=expires_at

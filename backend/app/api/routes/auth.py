@@ -406,8 +406,9 @@ def register(
     # Create and send Verification for email verification
     verification = Verification.generate(
         application_id=application.id,
-        email=real_email,  # Use real email for the verification record
-        user_id=str(new_user.id)
+        email=real_email,
+        user_id=str(new_user.id),
+        package_name=application.package_name
     )
     session.add(verification)
     session.commit()
@@ -656,11 +657,12 @@ def verify_email_resend(
     for verification in verifications:
         session.delete(verification)
     
-    # Generate new Verification
+    # Generate new Verification with application package_name for email prefixing
     new_verification = Verification.generate(
         application_id=application.id,
-        email=real_email,  # Use real email
-        user_id=renew.user_id
+        email=real_email,
+        user_id=renew.user_id,
+        package_name=application.package_name
     )
     session.add(new_verification)
     session.commit()
@@ -908,7 +910,8 @@ def invite_friend(
     invitation = Invitation.generate(
         application_id=application.id,
         email_to=invite_create.email_to,
-        inviter_id=current_user.id
+        inviter_id=current_user.id,
+        package_name=application.package_name
     )
     
     session.add(invitation)
@@ -969,11 +972,14 @@ def check_invite(
             message="Invitation has expired"
         )
     
+    # Extract the real email from the potentially prefixed email
+    real_email = extract_real_email(invitation.email_to)
+    
     return InviteCheck(
         is_valid=True,
         message="Invitation is valid",
         inviter_id=invitation.inviter_id,
-        email_to=invitation.email_to,
+        email_to=real_email,  # Return the real email, not the prefixed one
         expires_at=invitation.expires_at
     )
 
@@ -1002,6 +1008,13 @@ def get_user_invites(
             Invitation.application_id == application.id
         )
     ).all()
+    
+    # Process invitations to extract real emails
+    for invitation in invitations:
+        # Store the original prefixed email
+        prefixed_email = invitation.email_to
+        # Extract and set the real email for display
+        invitation.email_to = extract_real_email(prefixed_email)
     
     return invitations
 
