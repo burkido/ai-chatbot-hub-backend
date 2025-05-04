@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import auth, users, chat, documents, redeem, utils, assistant, applications, feedback
+from app.api.routes import auth, users, chat, documents, redeem, utils, assistant, applications, feedback, ads
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -12,3 +12,4 @@ api_router.include_router(redeem.router, prefix="/redeem-code", tags=["redeem"])
 api_router.include_router(assistant.router, prefix="/assistant", tags=["assistant"])
 api_router.include_router(applications.router, prefix="/applications", tags=["applications"])
 api_router.include_router(feedback.router, prefix="/feedback", tags=["feedback"])
+api_router.include_router(ads.router, prefix="/ads", tags=["ads"])
