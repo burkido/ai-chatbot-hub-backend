@@ -105,12 +105,14 @@ def create_user(
             email_to=user_in.email, 
             username=user_in.email, 
             password=user_in.password, 
-            deeplink=f"https://assistlyai.space/doctor/login"
+            deeplink=f"https://assistlyai.space/doctor/login",
+            project_name=application.name if application.name else settings.PROJECT_NAME
         )
         send_email(
             email_to=user_in.email,
             subject=email_data.subject,
             html_content=email_data.html_content,
+            project_name=application.name if application.name else settings.PROJECT_NAME
         )
     return user
 
@@ -211,12 +213,14 @@ def register_user(session: SessionDep, language: LanguageDep, application: Appli
         email_to=user_in.email, 
         otp=verification.code,
         deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
+        project_name=application.name if application.name else settings.PROJECT_NAME,
         language=language
     )
     send_email(
         email_to=user_in.email,
         subject=email_data.subject,
         html_content=email_data.html_content,
+        project_name=application.name if application.name else settings.PROJECT_NAME
     )
     
     return user

@@ -100,6 +100,7 @@ def login(
             email_to=real_email,
             subject=email_data.subject,
             html_content=email_data.html_content,
+            project_name=application.name if application.name else settings.PROJECT_NAME
         )
         
         raise HTTPException(
@@ -296,6 +297,7 @@ def refresh_access_token(
             email_to=real_email,
             subject=email_data.subject,
             html_content=email_data.html_content,
+            project_name=application.name if application.name else settings.PROJECT_NAME
         )
         
         raise HTTPException(
@@ -418,12 +420,14 @@ def register(
         email_to=real_email,  # Send to real email
         otp=verification.code,
         deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
+        project_name=application.name if application.name else settings.PROJECT_NAME,
         language=language  
     )
     send_email(
         email_to=real_email,  # Send to real email
         subject=email_data.subject,
         html_content=email_data.html_content,
+        project_name=application.name if application.name else settings.PROJECT_NAME
     )
     
     return RegisterResponse(id=str(new_user.id))
@@ -678,6 +682,7 @@ def verify_email_resend(
         email_to=real_email,  # Send to real email
         subject=email_data.subject,
         html_content=email_data.html_content,
+        project_name=application.name if application.name else settings.PROJECT_NAME
     )
     
     return Message(message=get_translation("new_verification_sent", language))
@@ -720,23 +725,24 @@ def recover_password(
         session.delete(token)
     session.commit()
     
-    # Generate new reset password token
+    # Create and store a ResetPasswordToken in the database using the generate class method
+    # This will automatically create a 6-digit token
     reset_token = ResetPasswordToken.generate(
         application_id=application.id,
-        email=real_email,  # Use real email
-        user_id=str(user.id),
-        expiration_hours=settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS
+        email=real_email,
+        user_id=str(user.id)
     )
     session.add(reset_token)
     session.commit()
     session.refresh(reset_token)
     
-    # Generate email with reset token
+    # Generate email with the 6-digit token
     email_data = generate_reset_password_email(
-        email_to=real_email,  # Send to real email
-        email=real_email,  # Use real email in template
-        token=reset_token.token,  # Use the 6-digit token
+        email_to=real_email,  # Use real email
+        email=real_email,  # Use real email
+        token=reset_token.token,  # Use the generated 6-digit token
         deeplink=f"{application.app_deeplink_url}/reset-password/{reset_token.token}",
+        project_name=application.name if application.name else settings.PROJECT_NAME,
         language=language
     )
     
@@ -744,6 +750,7 @@ def recover_password(
         email_to=real_email,  # Send to real email
         subject=email_data.subject,
         html_content=email_data.html_content,
+        project_name=application.name if application.name else settings.PROJECT_NAME
     )
     
     return Message(message="Password recovery email sent")
@@ -933,6 +940,7 @@ def invite_friend(
         email_to=invite_create.email_to,
         subject=email_data.subject,
         html_content=email_data.html_content,
+        project_name=application.name if application.name else settings.PROJECT_NAME
     )
     
     return invitation
