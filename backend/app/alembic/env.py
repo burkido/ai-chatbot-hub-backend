@@ -19,6 +19,7 @@ from app.models.database import Verification  # noqa
 from app.models.database import Invitation  # noqa
 # Note: RedeemCode is missing from our reorganization - we need to migrate it
 from app.models.database.redeem_code import RedeemCode  # noqa
+from app.models.database.reset_password_token import ResetPasswordToken  # noqa
 from app.core.config import settings  # noqa
 from sqlmodel import SQLModel
 

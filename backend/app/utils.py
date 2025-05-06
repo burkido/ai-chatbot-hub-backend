@@ -26,6 +26,7 @@ def send_email(
     email_to: str,
     subject: str = "",
     html_content: str = "",
+    project_name: str = settings.PROJECT_NAME,
 ) -> None:
     """Send email using Mailgun API."""
     assert settings.emails_enabled, "no provided configuration for email variables"
@@ -41,7 +42,7 @@ def send_email(
     
     # Prepare email data with postmaster as sender
     data = {
-        "from": f"{settings.PROJECT_NAME} <postmaster@{domain}>",
+        "from": f"{project_name} <postmaster@{domain}>",
         "to": email_to,
         "subject": subject,
     }
@@ -66,22 +67,20 @@ def send_email(
     # Raise an exception if the request failed
     response.raise_for_status()
 
-def generate_test_email(email_to: str, deeplink: str, language: str = DEFAULT_LANGUAGE) -> EmailData:
-    project_name = settings.PROJECT_NAME
+def generate_test_email(email_to: str, deeplink: str, project_name: str, language: str = DEFAULT_LANGUAGE) -> EmailData:
     subject = get_translation("test_email_subject", language, project_name=project_name)
     html_content = render_email_template(
         template_name="test_email.html",
-        context={"project_name": settings.PROJECT_NAME, "email": email_to, "deeplink": deeplink},
+        context={"project_name": project_name, "email": email_to, "deeplink": deeplink},
     )
     return EmailData(html_content=html_content, subject=subject)
 
-def generate_reset_password_email(email_to: str, email: str, token: str, deeplink: str, language: str = DEFAULT_LANGUAGE) -> EmailData:
-    project_name = settings.PROJECT_NAME
+def generate_reset_password_email(email_to: str, email: str, token: str, deeplink: str, project_name: str, language: str = DEFAULT_LANGUAGE) -> EmailData:
     subject = get_translation("password_recovery_subject", language, project_name=project_name, email=email)
     html_content = render_email_template(
         template_name="reset_password.html",
         context={
-            "project_name": settings.PROJECT_NAME,
+            "project_name": project_name,
             "username": email,
             "email": email_to,
             "valid_hours": settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS,
@@ -91,14 +90,13 @@ def generate_reset_password_email(email_to: str, email: str, token: str, deeplin
     return EmailData(html_content=html_content, subject=subject)
 
 def generate_new_account_email(
-    email_to: str, username: str, password: str, deeplink: str, language: str = DEFAULT_LANGUAGE
+    email_to: str, username: str, password: str, deeplink: str, project_name: str, language: str = DEFAULT_LANGUAGE
 ) -> EmailData:
-    project_name = settings.PROJECT_NAME
     subject = get_translation("new_account_subject", language, project_name=project_name, username=username)
     html_content = render_email_template(
         template_name="new_account.html",
         context={
-            "project_name": settings.PROJECT_NAME,
+            "project_name": project_name,
             "username": username,
             "password": password,
             "email": email_to,
@@ -108,9 +106,8 @@ def generate_new_account_email(
     return EmailData(html_content=html_content, subject=subject)
 
 def generate_invite_friend_email(
-    email_to: str, username: str, inviter_name: str, deeplink: str, language: str = DEFAULT_LANGUAGE
+    email_to: str, username: str, inviter_name: str, deeplink: str, project_name: str, language: str = DEFAULT_LANGUAGE
 ) -> EmailData:
-    project_name = settings.PROJECT_NAME
     subject = get_translation("invitation_subject", language, project_name=project_name, inviter_name=inviter_name)
     html_content = render_email_template(
         template_name="invite_friend.html",
@@ -124,17 +121,16 @@ def generate_invite_friend_email(
     )
     return EmailData(html_content=html_content, subject=subject)
 
-def generate_email_verification_otp(email_to: str, otp: str, deeplink: str, language: str = DEFAULT_LANGUAGE) -> EmailData:
-    project_name = settings.PROJECT_NAME
+def generate_email_verification_otp(email_to: str, otp: str, deeplink: str, project_name: str, language: str = DEFAULT_LANGUAGE) -> EmailData:
     subject = get_translation("email_verification_subject", language, project_name=project_name)
     html_content = render_email_template(
         template_name="verify_user.html",
         context={
-            "project_name": settings.PROJECT_NAME,
+            "project_name": project_name,
             "email": email_to,
-            "otp": otp,
+            "verification_code": otp,
             "valid_minutes": 10,
-            "deeplink": deeplink,
+            "verification_url": deeplink,
         },
     )
     return EmailData(html_content=html_content, subject=subject)

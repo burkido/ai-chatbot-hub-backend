@@ -115,7 +115,7 @@
                       style="font-size:0px;padding:10px 25px;padding-right:25px;padding-left:25px;word-break:break-word;">
                       <div
                         style="font-family:Arial, Helvetica, sans-serif;font-size:16px;line-height:1;text-align:center;color:#555555;">
-                        <span>Hello {{ username }}</span></div>
+                        <span>Hello {{ email }}</span></div>
                     </td>
                   </tr>
                   <tr>
@@ -151,7 +151,7 @@
                         <tr>
                           <td align="center" bgcolor="#009688" role="presentation"
                             style="border:none;border-radius:8px;cursor:auto;padding:10px 25px;background:#009688;"
-                            valign="middle"><a href="{{ deeplink }}"
+                            valign="middle"><a href="{{ verification_url }}"
                               style="background:#009688;color:#ffffff;font-family:Ubuntu, Helvetica, Arial, sans-serif;font-size:18px;font-weight:normal;line-height:120%;Margin:0;text-decoration:none;text-transform:none;"
                               target="_blank">Verify Account</a></td>
                         </tr>
@@ -171,7 +171,7 @@
                       style="font-size:0px;padding:10px 25px;padding-right:25px;padding-left:25px;word-break:break-word;">
                       <div
                         style="font-family:Arial, Helvetica, sans-serif;font-size:16px;line-height:1;text-align:center;color:#555555;">
-                        <a href="{{ deeplink }}">{{ deeplink }}</a></div>
+                        <a href="{{ verification_url }}">{{ verification_url }}</a></div>
                     </td>
                   </tr>
                   <tr>
@@ -179,7 +179,7 @@
                       style="font-size:0px;padding:10px 25px;padding-right:25px;padding-left:25px;word-break:break-word;">
                       <div
                         style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1;text-align:center;color:#555555;">
-                        This verification code will expire in 24 hours.</div>
+                        This verification code will expire in {{ valid_minutes }} minutes.</div>
                     </td>
                   </tr>
                   <tr>

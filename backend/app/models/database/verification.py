@@ -1,7 +1,9 @@
 import uuid
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from sqlmodel import Field, SQLModel
+from app.utils import prefix_email_with_package
 
 
 class Verification(SQLModel, table=True):
@@ -22,14 +24,17 @@ class Verification(SQLModel, table=True):
         return datetime.now(timezone.utc) > self.expires_at
         
     @classmethod
-    def generate(cls, application_id: uuid.UUID, email: str, user_id: str, expiration_minutes: int = 10) -> "Verification":
+    def generate(cls, application_id: uuid.UUID, email: str, user_id: str, expiration_minutes: int = 10, package_name: Optional[str] = None) -> "Verification":
         """Generate a new verification code for the given email with specified expiration time"""
         verification_code = ''.join(secrets.choice('0123456789') for _ in range(6))
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=expiration_minutes)
         
+        # Apply email prefixing if package_name is provided
+        prefixed_email = prefix_email_with_package(email, package_name) if package_name else email
+        
         return cls(
             application_id=application_id,
-            email=email,
+            email=prefixed_email,
             user_id=user_id,
             code=verification_code,
             expires_at=expires_at
