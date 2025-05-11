@@ -20,11 +20,21 @@ if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
 # Create security scheme for Swagger UI to allow bearer token input
 security_scheme = HTTPBearer(auto_error=False)
 
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    generate_unique_id_function=custom_generate_unique_id,
-)
+# Disable Swagger UI and documentation in production for security
+if settings.ENVIRONMENT == "production":
+    app = FastAPI(
+        title=settings.PROJECT_NAME,
+        openapi_url=None,  # Disable OpenAPI schema in production
+        docs_url=None,     # Disable Swagger UI
+        redoc_url=None,    # Disable ReDoc
+        generate_unique_id_function=custom_generate_unique_id,
+    )
+else:
+    app = FastAPI(
+        title=settings.PROJECT_NAME,
+        openapi_url=f"{settings.API_V1_STR}/openapi.json",
+        generate_unique_id_function=custom_generate_unique_id,
+    )
 
 # Set all CORS enabled origins
 if settings.BACKEND_CORS_ORIGINS:
@@ -38,8 +48,33 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
     )
 
+# Add security middleware (always enabled, with stricter settings in production)
+from app.core.security.security_headers import SecurityHeadersMiddleware
+from app.core.security.security_monitoring import SecurityMonitoringMiddleware
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(SecurityMonitoringMiddleware)
+
+# Add rate limiting middleware in production
+# Import only if needed to avoid errors if the file doesn't exist yet
+if settings.ENVIRONMENT == "production":
+    try:
+        from app.core.security.rate_limiter import RateLimitMiddleware
+        app.add_middleware(
+            RateLimitMiddleware,
+            max_requests=60,  # Max 60 requests
+            window_seconds=60  # Per minute
+        )
+    except ImportError:
+        import warnings
+        warnings.warn("Rate limiting middleware not available, but required in production.")
+
 # Custom OpenAPI schema to include Accept-Language header parameter
 def custom_openapi():
+    # In production, we don't expose OpenAPI schema, so no need to generate it
+    if settings.ENVIRONMENT == "production":
+        return {}
+    
+    # For non-production environments, generate the schema as usual
     if app.openapi_schema:
         return app.openapi_schema
     
