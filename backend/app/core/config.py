@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 60 * 24 * 8    # 60 minutes * 24 hours * 8 days = 8 days
     DOMAIN: str = "localhost"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
+    
+    # Security settings
+    RATE_LIMITING_ENABLED: bool = False  # Enable/disable rate limiting (always on in production)
+    RATE_LIMITING_MAX_REQUESTS: int = 60  # Max requests per window
+    RATE_LIMITING_WINDOW_SECONDS: int = 60  # Window size in seconds
+    RATE_LIMITING_WHITELIST: list[str] = []  # IPs exempt from rate limiting
 
     @computed_field  # type: ignore[prop-decorator]
     @property
