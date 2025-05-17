@@ -474,8 +474,72 @@ export class DocumentService {
 
 export class FileUploadService {
   /**
-   * Upload Document
-   * Upload a file (PDF).
+   * Upload PDF Document
+   * Upload a PDF file.
+   * @returns UploadDocumentResponse Successful Response
+   * @throws ApiError
+   */
+  public static uploadPdfDocument(data: {
+    formData: FormData
+  }): CancelablePromise<UploadDocumentResponse> {
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/api/v1/documents/upload-document/pdf/",
+      body: data.formData,
+      mediaType: "multipart/form-data",
+      errors: {
+        400: `Invalid file format. Only PDF files are accepted.`,
+        422: `Validation Error`,
+      },
+    })
+  }
+
+  /**
+   * Upload TXT Document
+   * Upload a TXT file.
+   * @returns UploadDocumentResponse Successful Response
+   * @throws ApiError
+   */
+  public static uploadTxtDocument(data: {
+    formData: FormData
+  }): CancelablePromise<UploadDocumentResponse> {
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/api/v1/documents/upload-document/txt/",
+      body: data.formData,
+      mediaType: "multipart/form-data",
+      errors: {
+        400: `Invalid file format. Only TXT files are accepted.`,
+        422: `Validation Error`,
+      },
+    })
+  }
+  
+  /**
+   * Upload JSONL Document
+   * Upload a JSONL file.
+   * @returns UploadDocumentResponse Successful Response
+   * @throws ApiError
+   */
+  public static uploadJsonlDocument(data: {
+    formData: FormData
+  }): CancelablePromise<UploadDocumentResponse> {
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/api/v1/documents/upload-document/jsonl/",
+      body: data.formData,
+      mediaType: "multipart/form-data",
+      errors: {
+        400: `Invalid file format. Only JSONL files are accepted.`,
+        422: `Validation Error`,
+      },
+    })
+  }
+  
+  /**
+   * Upload Document (Legacy)
+   * Upload a file (PDF) using the legacy endpoint.
+   * @deprecated This method is maintained for backward compatibility. Use uploadPdfDocument instead.
    * @returns UploadDocumentResponse Successful Response
    * @throws ApiError
    */
@@ -484,7 +548,7 @@ export class FileUploadService {
   }): CancelablePromise<UploadDocumentResponse> {
     return __request(OpenAPI, {
       method: "POST",
-      url: "/api/v1/documents/upload-document/",
+      url: "/api/v1/documents/upload-document/pdf/",
       body: data.formData,
       mediaType: "multipart/form-data",
       errors: {

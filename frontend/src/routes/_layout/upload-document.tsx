@@ -18,16 +18,54 @@ import {
   TabPanel,
   Text,
   Box,
+  Select,
 } from '@chakra-ui/react';
 import { useMutation } from '@tanstack/react-query';
 import { FileUploadService, FileDeleteService } from "../../client"
 import { UploadDocumentResponse, DeleteDocumentResponse } from "../../client/models"
 
 export const Route = createFileRoute('/_layout/upload-document')({
-  component: UploadPDF,
+  component: DocumentUploader,
 });
 
-function UploadPDF() {
+// File type enum for better type safety
+enum FileType {
+  PDF = 'pdf',
+  TXT = 'txt',
+  JSONL = 'jsonl'
+}
+
+// Interface for file type info
+interface FileTypeInfo {
+  label: string;
+  extension: string;
+  accept: string;
+  description: string;
+}
+
+// File type configurations
+const fileTypes: Record<FileType, FileTypeInfo> = {
+  [FileType.PDF]: {
+    label: 'PDF Document',
+    extension: '.pdf',
+    accept: 'application/pdf',
+    description: 'Upload PDF documents like books, papers, or reports.'
+  },
+  [FileType.TXT]: {
+    label: 'Text Document',
+    extension: '.txt',
+    accept: 'text/plain',
+    description: 'Plain text files containing knowledge base content.'
+  },
+  [FileType.JSONL]: {
+    label: 'JSONL Document',
+    extension: '.jsonl',
+    accept: 'application/jsonl,.jsonl',
+    description: 'JSON Lines format for Q&A pairs with questions, options, and answers.'
+  }
+}
+
+function DocumentUploader() {
   const [namespace, setNamespace] = useState('doctor-ai');
   const [indexName, setIndexName] = useState('assistant-ai');
   const [file, setFile] = useState<File | null>(null);
@@ -36,6 +74,7 @@ function UploadPDF() {
   const [author, setAuthor] = useState('');
   const [source, setSource] = useState('');
   const [topic, setTopic] = useState('');
+  const [fileType, setFileType] = useState<FileType>(FileType.PDF);
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -64,13 +103,52 @@ function UploadPDF() {
         return;
       }
 
+      // Validate file extension based on selected file type
+      const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase() || '';
+      const expectedExtension = fileTypes[fileType].extension.replace('.', '');
+      
+      if (fileExtension !== expectedExtension) {
+        toast({
+          title: 'Invalid file type',
+          description: `Please upload a ${fileTypes[fileType].extension} file when "${fileTypes[fileType].label}" is selected.`,
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+        setFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
+
       setFile(selectedFile);
     }
   };
 
-  const mutation = useMutation<UploadDocumentResponse, Error, FormData>({
-    mutationFn: async (formData: FormData) => {
-      return FileUploadService.uploadDocument({ formData });
+  const handleFileTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newFileType = e.target.value as FileType;
+    setFileType(newFileType);
+    
+    // Clear the file selection when changing file type
+    setFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const uploadMutation = useMutation<UploadDocumentResponse, Error, { formData: FormData, type: FileType }>({
+    mutationFn: async ({ formData, type }) => {
+      switch (type) {
+        case FileType.PDF:
+          return FileUploadService.uploadPdfDocument({ formData });
+        case FileType.TXT:
+          return FileUploadService.uploadTxtDocument({ formData });
+        case FileType.JSONL:
+          return FileUploadService.uploadJsonlDocument({ formData });
+        default:
+          throw new Error(`Unsupported file type: ${type}`);
+      }
     },
     onSuccess: (response) => {
       setUploadSuccess(true);
@@ -78,11 +156,37 @@ function UploadPDF() {
       setIsLoading(false);
       setUploadedDocumentId(response.document_id);
       setChunkCount(response.chunk_count);
+      
+      toast({
+        title: 'Upload Successful',
+        description: `${fileTypes[fileType].label} was successfully uploaded with ID: ${response.document_id}`,
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      });
+      
+      // Reset form fields but keep index and namespace
+      setFile(null);
+      setBookTitle('');
+      setAuthor('');
+      setSource('');
+      setTopic('');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     },
-    onError: () => {
+    onError: (error) => {
       setUploadSuccess(false);
       setUploadError(true);
       setIsLoading(false);
+      
+      toast({
+        title: 'Upload Failed',
+        description: error.message || 'An error occurred during upload',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
     },
   });
 
@@ -122,7 +226,7 @@ function UploadPDF() {
     formData.append('source', source);
     formData.append('topic', topic);
 
-    mutation.mutate(formData);
+    uploadMutation.mutate({ formData, type: fileType });
   };
 
   const deleteMutation = useMutation<DeleteDocumentResponse, Error, { document_id: string }>({
@@ -177,6 +281,25 @@ function UploadPDF() {
         </TabList>
         <TabPanels>
           <TabPanel>
+            {/* File type selection */}
+            <FormControl mt={4} isRequired>
+              <FormLabel htmlFor="fileType">Document Type</FormLabel>
+              <Select
+                id="fileType"
+                value={fileType}
+                onChange={handleFileTypeChange}
+              >
+                {Object.entries(fileTypes).map(([type, info]) => (
+                  <option key={type} value={type}>
+                    {info.label}
+                  </option>
+                ))}
+              </Select>
+              <Text fontSize="sm" color="gray.600" mt={1}>
+                {fileTypes[fileType].description}
+              </Text>
+            </FormControl>
+
             <FormControl mt={4} isRequired>
               <FormLabel htmlFor="indexName">Index Name</FormLabel>
               <Input
@@ -244,7 +367,14 @@ function UploadPDF() {
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
+                accept={fileTypes[fileType].accept}
               />
+              <Text fontSize="sm" color="gray.600" mt={1}>
+                Only {fileTypes[fileType].extension} files are accepted. {
+                  fileType === FileType.JSONL && 
+                  "JSONL should contain records with 'question', 'options', and 'answer' fields."
+                }
+              </Text>
             </FormControl>
             {uploadSuccess && (
               <Alert status="success" mt={4}>
@@ -270,7 +400,7 @@ function UploadPDF() {
               </Alert>
             )}
             <Button variant="primary" mt={4} onClick={handleUpload} isLoading={isLoading}>
-              Save
+              Upload Document
             </Button>
           </TabPanel>
           <TabPanel>
@@ -299,4 +429,4 @@ function UploadPDF() {
   );
 }
 
-export default UploadPDF;
+export default DocumentUploader;

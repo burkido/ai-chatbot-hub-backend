@@ -27,6 +27,7 @@
   "document_deleted_successfully": "Successfully deleted all chunks for document",
   "document_id_required": "You must provide a 'document_id' for deletion.",
   "document_not_found": "No documents found with the specified document_id",
+  "invalid_file_format": "Invalid file format. Only {format} files are accepted.",
   "Item not found": "Item not found",
   "Not enough permissions": "Not enough permissions",
   "Item deleted successfully": "Item deleted successfully"

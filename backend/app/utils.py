@@ -2,7 +2,7 @@ import os, json, fitz, logging, jwt
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, TypedDict, List, Dict
 from jinja2 import Template
 from jwt.exceptions import InvalidTokenError
 
@@ -188,6 +188,18 @@ class PDFData(TypedDict):
     source: str
     metadata: PDFMetadata
 
+class TxtData(TypedDict):
+    id: str
+    text: str
+    source: str
+    metadata: PDFMetadata
+
+class JsonlData(TypedDict):
+    id: str
+    items: List[Dict[str, Any]]
+    source: str
+    metadata: PDFMetadata
+
 class Parser:
     def __init__(self, file_path: str, title: str, author: str, source: str) -> None:
         self.file_path = file_path
@@ -210,6 +222,63 @@ class Parser:
         return {
             'id': os.path.basename(self.file_path).split('.')[0],
             'text': pdf_content,
+            'source': self.source,
+            'metadata': metadata
+        }
+
+class TxtParser:
+    def __init__(self, file_path: str, title: str, author: str, source: str) -> None:
+        self.file_path = file_path
+        self.title = title
+        self.author = author
+        self.source = source
+        self.txt_data = self.read_txt()
+
+    def read_txt(self) -> TxtData:
+        """Read a text file and return structured data"""
+        with open(self.file_path, 'r', encoding='utf-8') as file:
+            txt_content = file.read().strip()
+
+        metadata: PDFMetadata = {
+            'title': self.title,
+            'author': self.author
+        }
+
+        return {
+            'id': os.path.basename(self.file_path).split('.')[0],
+            'text': txt_content,
+            'source': self.source,
+            'metadata': metadata
+        }
+
+class JsonlParser:
+    def __init__(self, file_path: str, title: str, author: str, source: str) -> None:
+        self.file_path = file_path
+        self.title = title
+        self.author = author
+        self.source = source
+        self.jsonl_data = self.read_jsonl()
+
+    def read_jsonl(self) -> JsonlData:
+        """Read a JSONL file and return structured data"""
+        items = []
+        with open(self.file_path, 'r', encoding='utf-8') as file:
+            for line in file:
+                try:
+                    item = json.loads(line.strip())
+                    items.append(item)
+                except json.JSONDecodeError:
+                    # Skip invalid JSON lines
+                    continue
+
+        metadata: PDFMetadata = {
+            'title': self.title,
+            'author': self.author
+        }
+
+        return {
+            'id': os.path.basename(self.file_path).split('.')[0],
+            'items': items,
             'source': self.source,
             'metadata': metadata
         }
