@@ -14,6 +14,7 @@ class ChatRequest(BaseModel):
     message: str  # The new user message to be appended
     topic: str  # The title of the chat request
     namespace: str  # The namespace for the chat request
+    assistant_type: str | None = None  # Optional type of assistant to use
 
 
 class ChatResponse(BaseModel):
