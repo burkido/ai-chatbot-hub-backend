@@ -138,6 +138,13 @@ Before deploying it, make sure you change at least the values for:
 
 You can (and should) pass these as environment variables from secrets.
 
+### Optional API Keys
+
+For additional functionality, you may want to provide values for these keys:
+
+- `GOOGLE_TRANSLATE_API_KEY` - Required for multilingual support, get this from Google Cloud Console with Translation API enabled
+- `GOOGLE_PROJECT_ID` - Optional for v3 API access with advanced translation features
+
 Read the [deployment.md](./deployment.md) docs for more details.
 
 ### Generate Secret Keys

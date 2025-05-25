@@ -8,7 +8,7 @@ from fastapi import Request
 
 # Convert to a set for faster lookups
 DEFAULT_LANGUAGE = "en"
-SUPPORTED_LANGUAGES: Set[str] = {"en", "fr", "es", "de", "tr"}
+SUPPORTED_LANGUAGES: Set[str] = {"en", "ar", "de", "es", "fr", "hi", "it", "ja", "ko", "pt", "ru", "tr", "zh"}
 SUPPORTED_LANGUAGES_MAP = {lang: lang for lang in SUPPORTED_LANGUAGES}
 
 class Translator:
