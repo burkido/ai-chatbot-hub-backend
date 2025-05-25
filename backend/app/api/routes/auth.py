@@ -712,8 +712,6 @@ def recover_password(
     # Extract real email from user record
     real_email = extract_real_email(user.email)
 
-    print(f"Real email: {real_email}")
-    
     # Delete any existing unused reset tokens for this user
     statement = select(ResetPasswordToken).where(
         ResetPasswordToken.user_id == str(user.id),
