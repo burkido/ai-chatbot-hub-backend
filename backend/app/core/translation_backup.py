@@ -16,32 +16,6 @@ SUPPORTED_LANGUAGES = {"ar", "de", "en", "es", "fr", "hi", "it", "ja", "ko", "pt
 # Default language for the application
 DEFAULT_LANGUAGE = "en"
 
-
-class TranslationError(Exception):
-    """
-    Custom exception for translation-related errors
-    """
-    def __init__(self, message: str, status_code: Optional[int] = None, details: Optional[Dict[str, Any]] = None):
-        """
-        Initialize translation error
-        
-        Args:
-            message: Error message
-            status_code: HTTP status code if applicable
-            details: Additional error details
-        """
-        super().__init__(message)
-        self.message = message
-        self.status_code = status_code
-        self.details = details or {}
-    
-    def __str__(self) -> str:
-        """String representation of the error"""
-        if self.status_code:
-            return f"Translation Error ({self.status_code}): {self.message}"
-        return f"Translation Error: {self.message}"
-
-
 class TranslationService:
     """
     Service for translating text between languages using Google Cloud Translation API.

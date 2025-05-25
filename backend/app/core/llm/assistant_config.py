@@ -1,7 +1,14 @@
 """
 Assistant configurations and system prompts for different application types.
 """
-from typing import Dict, Any, Optional
+import os
+import json
+import logging
+from typing import Dict, Any, Optional, List
+from pathlib import Path
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 # Define standard assistant types
 ASSISTANT_TYPE_DOCTOR = "doctor"
@@ -10,6 +17,12 @@ ASSISTANT_TYPE_FINANCE = "finance"
 ASSISTANT_TYPE_GENERAL = "general"
 ASSISTANT_TYPE_CODING = "coding"
 ASSISTANT_TYPE_EDUCATION = "education"
+
+# Configuration validation constants
+MIN_TEMPERATURE = 0.0
+MAX_TEMPERATURE = 2.0
+MAX_PROMPT_LENGTH = 10000
+MIN_PROMPT_LENGTH = 50
 
 # Registry for assistant configurations
 ASSISTANT_CONFIGS: Dict[str, Dict[str, Any]] = {
@@ -127,12 +140,69 @@ def get_assistant_config(assistant_type: str) -> Dict[str, Any]:
         The assistant configuration
         
     Raises:
-        ValueError: If the assistant type is not supported
+        ValueError: If the assistant type is not supported or invalid
     """
-    if assistant_type.lower() not in ASSISTANT_CONFIGS:
-        raise ValueError(f"Unsupported assistant type: {assistant_type}. Available types: {', '.join(ASSISTANT_CONFIGS.keys())}")
+    try:
+        if not assistant_type:
+            raise ValueError("Assistant type cannot be empty")
+        
+        if not isinstance(assistant_type, str):
+            raise ValueError("Assistant type must be a string")
+        
+        normalized_type = assistant_type.lower().strip()
+        
+        if normalized_type not in ASSISTANT_CONFIGS:
+            available_types = ', '.join(get_available_assistant_types())
+            raise ValueError(f"Unsupported assistant type: {assistant_type}. Available types: {available_types}")
+        
+        config = ASSISTANT_CONFIGS[normalized_type].copy()  # Return a copy to prevent modification
+        logger.debug(f"Retrieved configuration for assistant type: {normalized_type}")
+        return config
+        
+    except Exception as e:
+        logger.error(f"Failed to get assistant config: {str(e)}")
+        raise
+
+
+def validate_assistant_config(config: Dict[str, Any]) -> None:
+    """
+    Validate an assistant configuration
     
-    return ASSISTANT_CONFIGS[assistant_type.lower()]
+    Args:
+        config: The configuration to validate
+        
+    Raises:
+        ValueError: If the configuration is invalid
+    """
+    required_fields = ["name", "system_prompt", "temperature"]
+    
+    for field in required_fields:
+        if field not in config:
+            raise ValueError(f"Missing required field: {field}")
+    
+    # Validate name
+    if not isinstance(config["name"], str) or not config["name"].strip():
+        raise ValueError("Name must be a non-empty string")
+    
+    # Validate system prompt
+    prompt = config["system_prompt"]
+    if not isinstance(prompt, str):
+        raise ValueError("System prompt must be a string")
+    
+    if len(prompt.strip()) < MIN_PROMPT_LENGTH:
+        raise ValueError(f"System prompt must be at least {MIN_PROMPT_LENGTH} characters")
+    
+    if len(prompt) > MAX_PROMPT_LENGTH:
+        raise ValueError(f"System prompt must be less than {MAX_PROMPT_LENGTH} characters")
+    
+    # Validate temperature
+    temperature = config["temperature"]
+    if not isinstance(temperature, (int, float)):
+        raise ValueError("Temperature must be a number")
+    
+    if not MIN_TEMPERATURE <= temperature <= MAX_TEMPERATURE:
+        raise ValueError(f"Temperature must be between {MIN_TEMPERATURE} and {MAX_TEMPERATURE}")
+
 
 def register_assistant_type(
     assistant_type: str, 
@@ -152,18 +222,153 @@ def register_assistant_type(
         additional_config: Additional configuration parameters
         
     Raises:
-        ValueError: If the assistant type already exists
+        ValueError: If the assistant type already exists or configuration is invalid
     """
-    if assistant_type.lower() in ASSISTANT_CONFIGS:
-        raise ValueError(f"Assistant type '{assistant_type}' already exists")
+    try:
+        if not assistant_type or not isinstance(assistant_type, str):
+            raise ValueError("Assistant type must be a non-empty string")
+        
+        normalized_type = assistant_type.lower().strip()
+        
+        if normalized_type in ASSISTANT_CONFIGS:
+            raise ValueError(f"Assistant type '{assistant_type}' already exists")
+        
+        # Build configuration
+        config = {
+            "name": name,
+            "system_prompt": system_prompt,
+            "temperature": temperature,
+        }
+        
+        if additional_config:
+            config.update(additional_config)
+        
+        # Validate configuration
+        validate_assistant_config(config)
+        
+        # Register the new type
+        ASSISTANT_CONFIGS[normalized_type] = config
+        logger.info(f"Registered new assistant type: {normalized_type}")
+        
+    except Exception as e:
+        logger.error(f"Failed to register assistant type: {str(e)}")
+        raise
+
+
+def get_available_assistant_types() -> List[str]:
+    """
+    Get a list of all available assistant types
     
-    config = {
-        "name": name,
-        "system_prompt": system_prompt,
-        "temperature": temperature,
+    Returns:
+        List of available assistant type names
+    """
+    return list(ASSISTANT_CONFIGS.keys())
+
+
+def load_external_config(config_path: str) -> None:
+    """
+    Load assistant configurations from an external JSON file
+    
+    Args:
+        config_path: Path to the JSON configuration file
+        
+    Raises:
+        FileNotFoundError: If the config file doesn't exist
+        ValueError: If the config file is invalid
+        Exception: If loading fails
+    """
+    try:
+        config_file = Path(config_path)
+        
+        if not config_file.exists():
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+        
+        with open(config_file, 'r', encoding='utf-8') as f:
+            external_configs = json.load(f)
+        
+        if not isinstance(external_configs, dict):
+            raise ValueError("Configuration file must contain a JSON object")
+        
+        # Validate and register each configuration
+        for assistant_type, config in external_configs.items():
+            if not isinstance(config, dict):
+                logger.warning(f"Skipping invalid config for {assistant_type}: not a dictionary")
+                continue
+            
+            try:
+                validate_assistant_config(config)
+                ASSISTANT_CONFIGS[assistant_type.lower()] = config
+                logger.info(f"Loaded external config for: {assistant_type}")
+            except ValueError as e:
+                logger.warning(f"Skipping invalid config for {assistant_type}: {str(e)}")
+        
+        logger.info(f"Loaded {len(external_configs)} configurations from {config_path}")
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in config file: {str(e)}")
+        raise ValueError(f"Invalid JSON in configuration file: {str(e)}")
+    except Exception as e:
+        logger.error(f"Failed to load external config: {str(e)}")
+        raise
+
+
+def save_configs_to_file(output_path: str) -> None:
+    """
+    Save current assistant configurations to a JSON file
+    
+    Args:
+        output_path: Path where to save the configuration file
+        
+    Raises:
+        Exception: If saving fails
+    """
+    try:
+        output_file = Path(output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(ASSISTANT_CONFIGS, f, indent=2, ensure_ascii=False)
+        
+        logger.info(f"Saved {len(ASSISTANT_CONFIGS)} configurations to {output_path}")
+        
+    except Exception as e:
+        logger.error(f"Failed to save configurations: {str(e)}")
+        raise
+
+
+def get_config_summary() -> Dict[str, Any]:
+    """
+    Get a summary of all available assistant configurations
+    
+    Returns:
+        Dictionary containing summary information
+    """
+    summary = {
+        "total_assistants": len(ASSISTANT_CONFIGS),
+        "assistant_types": list(ASSISTANT_CONFIGS.keys()),
+        "assistants": {}
     }
     
-    if additional_config:
-        config.update(additional_config)
+    for assistant_type, config in ASSISTANT_CONFIGS.items():
+        summary["assistants"][assistant_type] = {
+            "name": config.get("name", "Unknown"),
+            "temperature": config.get("temperature", 0.7),
+            "prompt_length": len(config.get("system_prompt", "")),
+        }
     
-    ASSISTANT_CONFIGS[assistant_type.lower()] = config
+    return summary
+
+
+# Load external configurations if specified in environment
+def _load_external_configs_from_env() -> None:
+    """Load external configurations from environment variable if specified"""
+    external_config_path = os.getenv("ASSISTANT_CONFIG_PATH")
+    if external_config_path:
+        try:
+            load_external_config(external_config_path)
+        except Exception as e:
+            logger.warning(f"Failed to load external config from {external_config_path}: {str(e)}")
+
+
+# Initialize external configs on module load
+_load_external_configs_from_env()
