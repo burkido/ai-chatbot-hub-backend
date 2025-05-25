@@ -15,6 +15,7 @@ class ChatRequest(BaseModel):
     topic: str  # The title of the chat request
     namespace: str  # The namespace for the chat request
     assistant_type: str | None = None  # Optional type of assistant to use
+    language: str | None = None  # Optional language code for the response
 
 
 class ChatResponse(BaseModel):

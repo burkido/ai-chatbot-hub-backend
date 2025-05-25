@@ -86,6 +86,9 @@ class Settings(BaseSettings):
     MAILGUN_API_KEY: str = ""
     MAILGUN_DOMAIN: str = "mail.assistlyai.space"
 
+    # Translation API settings
+    GOOGLE_TRANSLATE_API_KEY: str = ""  # Set this via env var
+
     @model_validator(mode="after")
     def _set_default_emails_from(self) -> Self:
         if not self.EMAILS_FROM_NAME:

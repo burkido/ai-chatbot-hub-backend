@@ -5,6 +5,7 @@ from langchain.schema import SystemMessage, HumanMessage, AIMessage, BaseMessage
 from app.models.schemas.chat import ChatMessage
 from app.core.llm.providers import DEFAULT_SIMILARITY_THRESHOLD
 from app.core.llm.assistant_config import get_assistant_config, ASSISTANT_TYPE_DOCTOR
+from app.core.translation import TranslationService
 
 # Store singleton instances - key format: f"{provider_name}:{assistant_type}"
 _CHAT_SERVICE_INSTANCES = {}
@@ -23,6 +24,7 @@ class ChatService:
         self.llm_provider = llm_provider
         self.assistant_type = assistant_type.lower()
         self.assistant_config = get_assistant_config(self.assistant_type)
+        self.translation_service = TranslationService()
     
     def chat(
         self,
@@ -30,15 +32,19 @@ class ChatService:
         namespace: str,
         topic: str,
         history: List[ChatMessage],
+        language: str = "en",
+        search_message: Optional[str] = None
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """
         Process a chat message with LLM provider
         
         Args:
-            new_message: The new message from the user
+            new_message: The new message from the user (in their language)
             namespace: The namespace for vector search
             topic: The topic for vector search filtering
             history: The chat history
+            language: The language code for the response (defaults to English)
+            search_message: Optional translated message for vector search (defaults to new_message)
             
         Returns:
             Tuple containing response content and sources
@@ -65,22 +71,29 @@ class ChatService:
             elif msg.role != "system":
                 raise ValueError(f"Unknown role: {msg.role}")
         
+        # Use search_message for vector search if provided, otherwise use new_message
+        search_query = search_message if search_message is not None else new_message
+        
         # Get augmented prompt with relevant medical context and sources
-        augmented_prompt, sources = self._augment_prompt(new_message, namespace, topic, vectorstore)
+        augmented_prompt, sources = self._augment_prompt(search_query, namespace, topic, vectorstore)
         
-        # Add context from the retrieved sources if available as a separate system message
-        if sources:
-            # Extract only the context part from augmented_prompt
-            if "Contexts:" in augmented_prompt:
-                parts = augmented_prompt.split("Contexts:")
-                if len(parts) > 1:
-                    context_part = parts[1].split("Query:")[0].strip()
-                    context_msg = f"Relevant medical context for reference:\n{context_part}"
-                    # Add as an additional system message
-                    langchain_messages.append(SystemMessage(content=context_msg))
-        
-        # Add the user's message at the end
-        langchain_messages.append(HumanMessage(content=new_message))
+        # Include context in the user's message if sources are available
+        if sources and "Contexts:" in augmented_prompt:
+            parts = augmented_prompt.split("Contexts:")
+            if len(parts) > 1:
+                context_part = parts[1].split("Query:")[0].strip()
+                # Include context directly in the user's message
+                user_message_with_context = f"""Based on the following medical information:
+
+                {context_part}
+
+                Please answer my question: {new_message}"""
+                langchain_messages.append(HumanMessage(content=user_message_with_context))
+        else:
+            # No context available, just add the user's message
+            langchain_messages.append(HumanMessage(content=new_message))
+
+        print(f"Chat messages prepared for LLM: {langchain_messages}")
 
         # Get the assistant's response
         response = chat_model(langchain_messages)
