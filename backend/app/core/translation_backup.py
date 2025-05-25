@@ -121,8 +121,6 @@ class TranslationService:
         Returns:
             Dictionary with translated text and detected source language
         """
-        print(f"Arguments are text: {text}, target_language: {target_language}, source_language: {source_language}, mime_type: {mime_type}, model: {model}")
-        
         # If text is empty, no translation needed
         if not text:
             return {"translated_text": text, "detected_language": source_language or DEFAULT_LANGUAGE}
