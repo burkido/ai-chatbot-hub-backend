@@ -22,6 +22,7 @@ class UserCreate(BaseModel):
     is_superuser: bool = False
     is_active: bool = True
     is_verified: bool = False
+    is_anonymous: bool = False
     credit: int = 10
     invite_code: Optional[str] = None
     inviter_id: Optional[str] = None

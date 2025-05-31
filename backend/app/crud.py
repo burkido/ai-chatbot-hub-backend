@@ -71,6 +71,7 @@ def create_user(*, session: Session, user_create: UserCreate, application_id: uu
         is_active=user_create.is_active,
         is_superuser=user_create.is_superuser,
         is_verified=user_create.is_verified,
+        is_anonymous=user_create.is_anonymous,
         full_name=user_create.full_name,
         credit=user_create.credit
     )

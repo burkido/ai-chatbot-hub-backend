@@ -7,6 +7,7 @@ class Token(SQLModel):
     token_type: str = "bearer"
     user_id: str
     is_premium: bool = False
+    is_anonymous: bool = False
     remaining_credit: int
 
 class RefreshTokenRequest(SQLModel):

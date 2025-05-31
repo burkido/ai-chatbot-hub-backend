@@ -16,6 +16,7 @@ class User(SQLModel, table=True):
     google_id: str | None = Field(default=None, index=True)
     is_premium: bool = Field(default=False)
     is_verified: bool = Field(default=False)
+    is_anonymous: bool = Field(default=False)
     hashed_password: Optional[str] = None
 
     # Adding a UniqueConstraint via SQLAlchemy (using correct tuple syntax)
