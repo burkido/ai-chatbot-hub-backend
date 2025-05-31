@@ -116,6 +116,15 @@ def get_current_active_user(current_user: Annotated[User, Depends(get_current_us
         )
     return current_user
 
+def get_current_verified_user(current_user: Annotated[User, Depends(get_current_active_user)]) -> User:
+    """Dependency for endpoints that require verified users (excludes anonymous users)"""
+    if not current_user.is_verified and not current_user.is_anonymous:
+        raise HTTPException(
+            status_code=400,
+            detail="Email verification required",
+        )
+    return current_user
+
 def get_current_active_superuser(current_user: Annotated[User, Depends(get_current_active_user)]) -> User:
     if not current_user.is_superuser:
         raise HTTPException(
@@ -126,4 +135,5 @@ def get_current_active_superuser(current_user: Annotated[User, Depends(get_curre
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentActiveUser = Annotated[User, Depends(get_current_active_user)]
+CurrentVerifiedUser = Annotated[User, Depends(get_current_verified_user)]
 CurrentSuperUser = Annotated[User, Depends(get_current_active_superuser)]

@@ -11,6 +11,7 @@ class Application(SQLModel, table=True):
     description: str | None = Field(default=None)
     is_active: bool = Field(default=True)
     default_user_credit: int = Field(default=10)
+    default_anonymous_credit: int = Field(default=3)  # Lower credit for anonymous users
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     

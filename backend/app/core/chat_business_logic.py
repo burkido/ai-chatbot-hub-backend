@@ -89,21 +89,19 @@ class ChatBusinessLogic:
     def calculate_credit_cost(
         self, 
         has_sources: bool, 
-        needs_translation: bool
     ) -> int:
         """
         Calculate credit cost for a chat request
         
         Args:
             has_sources: Whether the response includes sources
-            needs_translation: Whether translation was needed
+            needs_translation: Whether translation was needed (not used for cost calculation)
             
         Returns:
             Credit cost
         """
         base_cost = 2 if has_sources else 1
-        translation_cost = 1 if needs_translation else 0
-        return base_cost + translation_cost
+        return base_cost
     
     def process_credit_deduction(
         self, 
@@ -122,25 +120,25 @@ class ChatBusinessLogic:
         Returns:
             Tuple of (remaining_credit, is_credit_sufficient)
         """
+        # Premium users have unlimited credits
         if user.is_premium:
             return user.credit, True
-            
-        if user.credit < credit_cost:
-            # Mark as insufficient credit
-            is_credit_sufficient = False
-            
-            # Decrease whatever credit is available if not already 0
-            if user.credit > 0:
-                crud.decrease_user_credit(session=session, user=user, amount=user.credit)
-                remaining_credit = 0
-            else:
-                remaining_credit = user.credit
+        
+        # Determine how much credit to deduct (partial or full)
+        deduction_amount = min(user.credit, credit_cost)
+        is_credit_sufficient = user.credit >= credit_cost
+        
+        # Only deduct if user has any credits available
+        if deduction_amount > 0:
+            updated_user = crud.decrease_user_credit(
+                session=session, 
+                user=user, 
+                amount=deduction_amount
+            )
+            remaining_credit = updated_user.credit
         else:
-            # User has sufficient credit, decrease the full amount
-            crud.decrease_user_credit(session=session, user=user, amount=credit_cost)
-            remaining_credit = user.credit - credit_cost
-            is_credit_sufficient = True
-            
+            remaining_credit = user.credit
+        
         return remaining_credit, is_credit_sufficient
     
     async def process_chat_request(
@@ -196,11 +194,8 @@ class ChatBusinessLogic:
             raise Exception(f"Chat processing failed: {str(e)}")
         
         # Calculate credit cost and process deduction
-        needs_translation = original_user_language != DEFAULT_LANGUAGE
-        credit_cost = self.calculate_credit_cost(bool(sources), needs_translation)
-        remaining_credit, is_credit_sufficient = self.process_credit_deduction(
-            session, user, credit_cost
-        )
+        credit_cost = self.calculate_credit_cost(bool(sources))
+        remaining_credit, is_credit_sufficient = self.process_credit_deduction(session, user, credit_cost)
         
         # Generate title for new conversations
         title = None

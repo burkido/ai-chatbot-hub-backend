@@ -17,7 +17,6 @@ from app.core import security
 from app.core.config import settings
 from app.core.i18n import get_translation
 from app.core.security import get_password_hash
-# Updated imports to use the new model structure
 from app.models.database.user import User
 from app.models.database.verification import Verification
 from app.models.database.invitation import Invitation
@@ -41,6 +40,144 @@ from app.utils import (
 )
 
 router = APIRouter()
+
+
+@router.post("/register-anonymous", response_model=Token)
+def register_anonymous(
+    session: SessionDep,
+    language: LanguageDep,
+    application: ApplicationDep
+) -> Token:
+    """
+    Register an anonymous user and return tokens for immediate access
+    """
+    # Generate a unique anonymous email
+    anonymous_email = f"anonymous_{uuid.uuid4().hex[:12]}@anonymous.assistly.ai"
+    
+    # Create anonymous user with lower credit from application settings
+    user_create = UserCreate(
+        email=anonymous_email,
+        password="",  # No password for anonymous users
+        full_name="Anonymous User",
+        is_active=True,
+        is_verified=True,  # Anonymous users are pre-verified
+        credit=application.default_anonymous_credit,  # Lower credit for anonymous users
+        is_anonymous=True
+    )
+    
+    # Create the user
+    new_user = crud.create_user(session=session, user_create=user_create, application_id=application.id)
+    
+    # Generate tokens for immediate access
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    return Token(
+        access_token=security.create_access_token(
+            new_user.id, 
+            application.id,
+            expires_delta=access_token_expires
+        ),
+        refresh_token=security.create_refresh_token(
+            new_user.id, 
+            application.id,
+            expires_delta=refresh_token_expires
+        ),
+        user_id=str(new_user.id),
+        is_premium=new_user.is_premium,
+        remaining_credit=new_user.credit,
+        is_anonymous=True
+    )
+
+@router.post("/convert-anonymous-to-regular")
+def convert_anonymous_to_regular(
+    session: SessionDep,
+    user_data: UserCreate,
+    current_user: CurrentUser,
+    language: LanguageDep,
+    application: ApplicationDep
+) -> Token:
+    """
+    Convert an anonymous user to a regular user with email/password
+    """
+    if not current_user.is_anonymous:
+        raise HTTPException(
+            status_code=400,
+            detail=get_translation("user_already_registered", language)
+        )
+    
+    # Check if the email is already taken
+    existing_user = crud.get_user_by_email(
+        session=session, 
+        email=user_data.email,
+        application_id=application.id
+    )
+    
+    if existing_user and existing_user.id != current_user.id:
+        raise HTTPException(
+            status_code=409,
+            detail=get_translation("user_exists", language)
+        )
+    
+    # Extract real email for verification
+    real_email = user_data.email
+    
+    current_user.email = f"{application.package_name}_{real_email}"
+    current_user.full_name = user_data.full_name
+    current_user.hashed_password = get_password_hash(user_data.password)
+    current_user.is_anonymous = False
+    current_user.is_verified = False
+    current_user.credit += 10
+    
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    
+    # Create and send verification email
+    verification = Verification.generate(
+        application_id=application.id,
+        email=real_email,
+        user_id=str(current_user.id),
+        package_name=application.package_name
+    )
+    session.add(verification)
+    session.commit()
+    
+    # Send verification email
+    email_data = generate_email_verification_otp(
+        email_to=real_email,
+        otp=verification.code,
+        deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
+        project_name=application.name if application.name else settings.PROJECT_NAME,
+        language=language
+    )
+    send_email(
+        email_to=real_email,
+        subject=email_data.subject,
+        html_content=email_data.html_content,
+        project_name=application.name if application.name else settings.PROJECT_NAME
+    )
+    
+    # Generate new tokens
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    return Token(
+        access_token=security.create_access_token(
+            current_user.id, 
+            application.id,
+            expires_delta=access_token_expires
+        ),
+        refresh_token=security.create_refresh_token(
+            current_user.id, 
+            application.id,
+            expires_delta=refresh_token_expires
+        ),
+        user_id=str(current_user.id),
+        is_premium=current_user.is_premium,
+        remaining_credit=current_user.credit,
+        is_anonymous=False
+    )
 
 
 @router.post("/login")
@@ -125,7 +262,8 @@ def login(
         ),
         user_id=str(user.id),
         is_premium=user.is_premium,
-        remaining_credit=user.credit
+        remaining_credit=user.credit,
+        is_anonymous=user.is_anonymous
     )
 
 @router.post("/login-google")
@@ -211,7 +349,8 @@ def google_login(
         ),
         user_id=str(user.id),
         is_premium=user.is_premium,
-        remaining_credit=user.credit
+        remaining_credit=user.credit,
+        is_anonymous=user.is_anonymous
     )
 
 @router.post("/refresh-token")
@@ -321,7 +460,8 @@ def refresh_access_token(
         ),
         user_id=str(user.id),
         is_premium=user.is_premium,
-        remaining_credit=user.credit
+        remaining_credit=user.credit,
+        is_anonymous=user.is_anonymous
     )
 
 @router.post("/register")
@@ -464,7 +604,7 @@ def google_register(
         statement = (
             select(Invitation)
             .where(Invitation.code == user_google.invite_code)
-            .where(Invitation.inviter_id == UUID(user_google.inviter_id))
+            .where(Invitation.inviter_id == UUID(user_google.invite_code))
             .where(Invitation.application_id == application.id)
         )
         invitation = session.exec(statement).first()
@@ -547,7 +687,684 @@ def google_register(
         ),
         user_id=str(new_user.id),
         is_premium=new_user.is_premium,
-        remaining_credit=new_user.credit
+        remaining_credit=new_user.credit,
+        is_anonymous=new_user.is_anonymous
+    )
+
+@router.post("/refresh-token")
+def refresh_access_token(
+    session: SessionDep, 
+    token_request: RefreshTokenRequest,
+    language: LanguageDep,
+    application: ApplicationDep
+) -> Token:
+    """
+    Refresh access token using refresh token.
+    Application is identified by the X-Application-Key header automatically.
+    """
+    try:
+        payload = jwt.decode(token_request.refresh_token, settings.SECRET_KEY, algorithms=['HS256'])
+        user_id = payload.get("sub")
+        token_app_id = payload.get("app")
+        
+        # Verify token is for the current application
+        if token_app_id != str(application.id):
+            raise HTTPException(
+                status_code=401, 
+                detail=get_translation("invalid_token_for_application", language)
+            )
+        
+        if user_id is None:
+            raise HTTPException(
+                status_code=401, 
+                detail=get_translation("invalid_token", language)
+            )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=401, 
+            detail=get_translation("invalid_token", language)
+        )
+    except jwt.DecodeError:
+        raise HTTPException(
+            status_code=401, 
+            detail=get_translation("invalid_token", language)
+        )
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=401, 
+            detail=get_translation("invalid_token", language)
+        )
+
+    user = crud.get_user_by_id(
+        session=session, 
+        user_id=user_id, 
+        application_id=application.id
+    )
+    
+    if not user:
+        raise HTTPException(
+            status_code=404, 
+            detail=get_translation("user_not_found", language)
+        )
+    elif not user.is_active:
+        raise HTTPException(
+            status_code=400, 
+            detail=get_translation("inactive_user", language)
+        )
+    elif not user.is_verified:
+        # Create and send a new Verification for verification since token refresh failed due to unverified account
+        # Extract real email for verification
+        real_email = extract_real_email(user.email)
+        verification = Verification.generate(
+            application_id=application.id,
+            email=real_email, 
+            user_id=str(user.id)
+        )
+        session.add(verification)
+        session.commit()
+        
+        # Send verification email with localized subject
+        email_data = generate_email_verification_otp(
+            email_to=real_email, 
+            otp=verification.code,
+            deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
+            language=language  
+        )
+        send_email(
+            email_to=real_email,
+            subject=email_data.subject,
+            html_content=email_data.html_content,
+            project_name=application.name if application.name else settings.PROJECT_NAME
+        )
+        
+        raise HTTPException(
+            status_code=403, 
+            detail=get_translation("account_not_verified", language)
+        )
+
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    return Token(
+        access_token=security.create_access_token(
+            str(user.id), 
+            str(application.id),
+            expires_delta=access_token_expires
+        ),
+        refresh_token=security.create_refresh_token(
+            str(user.id), 
+            str(application.id),
+            expires_delta=refresh_token_expires
+        ),
+        user_id=str(user.id),
+        is_premium=user.is_premium,
+        remaining_credit=user.credit,
+        is_anonymous=user.is_anonymous
+    )
+
+@router.post("/register")
+def register(
+    session: SessionDep,
+    user_create: UserCreate,
+    language: LanguageDep,
+    application: ApplicationDep
+) -> RegisterResponse:
+    """
+    Register a new user with optional invite logic
+    """
+    # Check if this email is already registered with this application
+    user = crud.get_user_by_email(
+        session=session, 
+        email=user_create.email,
+        application_id=application.id
+    )
+    
+    if user:
+        raise HTTPException(
+            status_code=409,
+            detail=get_translation("user_exists", language),
+        )
+    
+    # If invited, validate the invitation code
+    if user_create.invite_code and user_create.inviter_id:
+        # Find the invitation
+        statement = (
+            select(Invitation)
+            .where(Invitation.code == user_create.invite_code)
+            .where(Invitation.inviter_id == UUID(user_create.inviter_id))
+            .where(Invitation.application_id == application.id)
+        )
+        invitation = session.exec(statement).first()
+        
+        if not invitation:
+            raise HTTPException(
+                status_code=404, 
+                detail=get_translation("invalid_token", language)
+            )
+        
+        if invitation.is_used:
+            raise HTTPException(
+                status_code=400, 
+                detail=get_translation("invitation_code_used", language)
+            )
+        
+        if invitation.is_expired():
+            raise HTTPException(
+                status_code=400, 
+                detail=get_translation("invitation_code_expired", language)
+            )
+        
+        # Mark invitation as used using the consume method
+        invitation.consume()
+        session.add(invitation)
+        
+        # Add bonus credits for invited user
+        user_create.credit = application.default_user_credit * 2  # Double the default credits for invited users
+
+    # Set application_id on the user before creation
+    # Ensure default credit comes from the application if not specifically set
+    if user_create.credit == 10:  # This is the default from the model
+        user_create.credit = application.default_user_credit
+    
+    # Store original email for sending verification
+    real_email = user_create.email
+    
+    # Create the new user (the create_user function will handle email prefixing)
+    new_user = crud.create_user(session=session, user_create=user_create, application_id=application.id)
+
+    # Give credits to inviter if invitation is valid
+    if user_create.invite_code and user_create.inviter_id:
+        inviter_user = crud.get_user_by_id(
+            session=session, 
+            user_id=user_create.inviter_id,
+            application_id=application.id
+        )
+        if inviter_user:
+            inviter_user.credit += application.default_user_credit
+            session.add(inviter_user)
+    
+    # Create and send Verification for email verification
+    verification = Verification.generate(
+        application_id=application.id,
+        email=real_email,
+        user_id=str(new_user.id),
+        package_name=application.package_name
+    )
+    session.add(verification)
+    session.commit()
+    
+    # Send verification email
+    email_data = generate_email_verification_otp(
+        email_to=real_email,  # Send to real email
+        otp=verification.code,
+        deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
+        project_name=application.name if application.name else settings.PROJECT_NAME,
+        language=language  
+    )
+    send_email(
+        email_to=real_email,  # Send to real email
+        subject=email_data.subject,
+        html_content=email_data.html_content,
+        project_name=application.name if application.name else settings.PROJECT_NAME
+    )
+    
+    return RegisterResponse(id=str(new_user.id))
+
+@router.post("/register-google", response_model=Token)
+def google_register(
+    session: SessionDep,
+    user_google: UserGoogleRegister,
+    language: LanguageDep,
+    application: ApplicationDep
+) -> Token:
+    """
+    Register a new user with Google credentials, optional invite logic, and returns a token for immediate login
+    """
+    # Check if this email is already registered with this application
+    user = crud.get_user_by_email(
+        session=session, 
+        email=user_google.email,
+        application_id=application.id
+    )
+    
+    if user:
+        raise HTTPException(
+            status_code=409,
+            detail=get_translation("user_exists", language),
+        )
+    
+    # Set initial credit value to application default
+    credit = application.default_user_credit
+    
+    # If invited, validate the invitation code
+    if user_google.invite_code and user_google.inviter_id:
+        # Find the invitation
+        statement = (
+            select(Invitation)
+            .where(Invitation.code == user_google.invite_code)
+            .where(Invitation.inviter_id == UUID(user_google.invite_code))
+            .where(Invitation.application_id == application.id)
+        )
+        invitation = session.exec(statement).first()
+        
+        if not invitation:
+            raise HTTPException(
+                status_code=404, 
+                detail=get_translation("invalid_token", language)
+            )
+        
+        if invitation.is_used:
+            raise HTTPException(
+                status_code=400, 
+                detail=get_translation("invitation_code_used", language)
+            )
+        
+        if invitation.is_expired():
+            raise HTTPException(
+                status_code=400, 
+                detail=get_translation("invitation_code_expired", language)
+            )
+        
+        # Mark invitation as used
+        invitation.consume()
+        session.add(invitation)
+        
+        # Double credits for invited users
+        credit = application.default_user_credit * 2
+    
+    # Store original email for sending verification
+    real_email = user_google.email
+    
+    # Create a UserCreate object from the Google registration data
+    user_create = UserCreate(
+        email=user_google.email,
+        password="",  # No password needed for Google login
+        full_name=user_google.full_name,
+        is_active=True,
+        is_verified=True,  # Google users are pre-verified
+        credit=credit,
+        invite_code=user_google.invite_code,
+        inviter_id=user_google.inviter_id
+    )
+    
+    # Create the user with the crud function that handles email prefixing
+    new_user = crud.create_user(session=session, user_create=user_create, application_id=application.id)
+    
+    # Set the Google ID after creation
+    new_user.google_id = user_google.google_id
+    session.add(new_user)
+    session.commit()
+    session.refresh(new_user)
+    
+    # Give credits to inviter if invitation is valid
+    if user_google.invite_code and user_google.inviter_id:
+        inviter_user = crud.get_user_by_id(
+            session=session, 
+            user_id=user_google.inviter_id,
+            application_id=application.id
+        )
+        if inviter_user:
+            inviter_user.credit += application.default_user_credit
+            session.add(inviter_user)
+            session.commit()
+    
+    # Generate tokens for immediate login
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    return Token(
+        access_token=security.create_access_token(
+            new_user.id, 
+            application.id,
+            expires_delta=access_token_expires
+        ),
+        refresh_token=security.create_refresh_token(
+            new_user.id, 
+            application.id,
+            expires_delta=refresh_token_expires
+        ),
+        user_id=str(new_user.id),
+        is_premium=new_user.is_premium,
+        remaining_credit=new_user.credit,
+        is_anonymous=new_user.is_anonymous
+    )
+
+@router.post("/refresh-token")
+def refresh_access_token(
+    session: SessionDep, 
+    token_request: RefreshTokenRequest,
+    language: LanguageDep,
+    application: ApplicationDep
+) -> Token:
+    """
+    Refresh access token using refresh token.
+    Application is identified by the X-Application-Key header automatically.
+    """
+    try:
+        payload = jwt.decode(token_request.refresh_token, settings.SECRET_KEY, algorithms=['HS256'])
+        user_id = payload.get("sub")
+        token_app_id = payload.get("app")
+        
+        # Verify token is for the current application
+        if token_app_id != str(application.id):
+            raise HTTPException(
+                status_code=401, 
+                detail=get_translation("invalid_token_for_application", language)
+            )
+        
+        if user_id is None:
+            raise HTTPException(
+                status_code=401, 
+                detail=get_translation("invalid_token", language)
+            )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=401, 
+            detail=get_translation("invalid_token", language)
+        )
+    except jwt.DecodeError:
+        raise HTTPException(
+            status_code=401, 
+            detail=get_translation("invalid_token", language)
+        )
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=401, 
+            detail=get_translation("invalid_token", language)
+        )
+
+    user = crud.get_user_by_id(
+        session=session, 
+        user_id=user_id, 
+        application_id=application.id
+    )
+    
+    if not user:
+        raise HTTPException(
+            status_code=404, 
+            detail=get_translation("user_not_found", language)
+        )
+    elif not user.is_active:
+        raise HTTPException(
+            status_code=400, 
+            detail=get_translation("inactive_user", language)
+        )
+    elif not user.is_verified:
+        # Create and send a new Verification for verification since token refresh failed due to unverified account
+        # Extract real email for verification
+        real_email = extract_real_email(user.email)
+        verification = Verification.generate(
+            application_id=application.id,
+            email=real_email, 
+            user_id=str(user.id)
+        )
+        session.add(verification)
+        session.commit()
+        
+        # Send verification email with localized subject
+        email_data = generate_email_verification_otp(
+            email_to=real_email, 
+            otp=verification.code,
+            deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
+            language=language  
+        )
+        send_email(
+            email_to=real_email,
+            subject=email_data.subject,
+            html_content=email_data.html_content,
+            project_name=application.name if application.name else settings.PROJECT_NAME
+        )
+        
+        raise HTTPException(
+            status_code=403, 
+            detail=get_translation("account_not_verified", language)
+        )
+
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    return Token(
+        access_token=security.create_access_token(
+            str(user.id), 
+            str(application.id),
+            expires_delta=access_token_expires
+        ),
+        refresh_token=security.create_refresh_token(
+            str(user.id), 
+            str(application.id),
+            expires_delta=refresh_token_expires
+        ),
+        user_id=str(user.id),
+        is_premium=user.is_premium,
+        remaining_credit=user.credit,
+        is_anonymous=user.is_anonymous
+    )
+
+@router.post("/register")
+def register(
+    session: SessionDep,
+    user_create: UserCreate,
+    language: LanguageDep,
+    application: ApplicationDep
+) -> RegisterResponse:
+    """
+    Register a new user with optional invite logic
+    """
+    # Check if this email is already registered with this application
+    user = crud.get_user_by_email(
+        session=session, 
+        email=user_create.email,
+        application_id=application.id
+    )
+    
+    if user:
+        raise HTTPException(
+            status_code=409,
+            detail=get_translation("user_exists", language),
+        )
+    
+    # If invited, validate the invitation code
+    if user_create.invite_code and user_create.inviter_id:
+        # Find the invitation
+        statement = (
+            select(Invitation)
+            .where(Invitation.code == user_create.invite_code)
+            .where(Invitation.inviter_id == UUID(user_create.inviter_id))
+            .where(Invitation.application_id == application.id)
+        )
+        invitation = session.exec(statement).first()
+        
+        if not invitation:
+            raise HTTPException(
+                status_code=404, 
+                detail=get_translation("invalid_token", language)
+            )
+        
+        if invitation.is_used:
+            raise HTTPException(
+                status_code=400, 
+                detail=get_translation("invitation_code_used", language)
+            )
+        
+        if invitation.is_expired():
+            raise HTTPException(
+                status_code=400, 
+                detail=get_translation("invitation_code_expired", language)
+            )
+        
+        # Mark invitation as used using the consume method
+        invitation.consume()
+        session.add(invitation)
+        
+        # Add bonus credits for invited user
+        user_create.credit = application.default_user_credit * 2  # Double the default credits for invited users
+
+    # Set application_id on the user before creation
+    # Ensure default credit comes from the application if not specifically set
+    if user_create.credit == 10:  # This is the default from the model
+        user_create.credit = application.default_user_credit
+    
+    # Store original email for sending verification
+    real_email = user_create.email
+    
+    # Create the new user (the create_user function will handle email prefixing)
+    new_user = crud.create_user(session=session, user_create=user_create, application_id=application.id)
+
+    # Give credits to inviter if invitation is valid
+    if user_create.invite_code and user_create.inviter_id:
+        inviter_user = crud.get_user_by_id(
+            session=session, 
+            user_id=user_create.inviter_id,
+            application_id=application.id
+        )
+        if inviter_user:
+            inviter_user.credit += application.default_user_credit
+            session.add(inviter_user)
+    
+    # Create and send Verification for email verification
+    verification = Verification.generate(
+        application_id=application.id,
+        email=real_email,
+        user_id=str(new_user.id),
+        package_name=application.package_name
+    )
+    session.add(verification)
+    session.commit()
+    
+    # Send verification email
+    email_data = generate_email_verification_otp(
+        email_to=real_email,  # Send to real email
+        otp=verification.code,
+        deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
+        project_name=application.name if application.name else settings.PROJECT_NAME,
+        language=language  
+    )
+    send_email(
+        email_to=real_email,  # Send to real email
+        subject=email_data.subject,
+        html_content=email_data.html_content,
+        project_name=application.name if application.name else settings.PROJECT_NAME
+    )
+    
+    return RegisterResponse(id=str(new_user.id))
+
+@router.post("/register-google", response_model=Token)
+def google_register(
+    session: SessionDep,
+    user_google: UserGoogleRegister,
+    language: LanguageDep,
+    application: ApplicationDep
+) -> Token:
+    """
+    Register a new user with Google credentials, optional invite logic, and returns a token for immediate login
+    """
+    # Check if this email is already registered with this application
+    user = crud.get_user_by_email(
+        session=session, 
+        email=user_google.email,
+        application_id=application.id
+    )
+    
+    if user:
+        raise HTTPException(
+            status_code=409,
+            detail=get_translation("user_exists", language),
+        )
+    
+    # Set initial credit value to application default
+    credit = application.default_user_credit
+    
+    # If invited, validate the invitation code
+    if user_google.invite_code and user_google.inviter_id:
+        # Find the invitation
+        statement = (
+            select(Invitation)
+            .where(Invitation.code == user_google.invite_code)
+            .where(Invitation.inviter_id == UUID(user_google.invite_code))
+            .where(Invitation.application_id == application.id)
+        )
+        invitation = session.exec(statement).first()
+        
+        if not invitation:
+            raise HTTPException(
+                status_code=404, 
+                detail=get_translation("invalid_token", language)
+            )
+        
+        if invitation.is_used:
+            raise HTTPException(
+                status_code=400, 
+                detail=get_translation("invitation_code_used", language)
+            )
+        
+        if invitation.is_expired():
+            raise HTTPException(
+                status_code=400, 
+                detail=get_translation("invitation_code_expired", language)
+            )
+        
+        # Mark invitation as used
+        invitation.consume()
+        session.add(invitation)
+        
+        # Double credits for invited users
+        credit = application.default_user_credit * 2
+    
+    # Store original email for sending verification
+    real_email = user_google.email
+    
+    # Create a UserCreate object from the Google registration data
+    user_create = UserCreate(
+        email=user_google.email,
+        password="",  # No password needed for Google login
+        full_name=user_google.full_name,
+        is_active=True,
+        is_verified=True,  # Google users are pre-verified
+        credit=credit,
+        invite_code=user_google.invite_code,
+        inviter_id=user_google.inviter_id
+    )
+    
+    # Create the user with the crud function that handles email prefixing
+    new_user = crud.create_user(session=session, user_create=user_create, application_id=application.id)
+    
+    # Set the Google ID after creation
+    new_user.google_id = user_google.google_id
+    session.add(new_user)
+    session.commit()
+    session.refresh(new_user)
+    
+    # Give credits to inviter if invitation is valid
+    if user_google.invite_code and user_google.inviter_id:
+        inviter_user = crud.get_user_by_id(
+            session=session, 
+            user_id=user_google.inviter_id,
+            application_id=application.id
+        )
+        if inviter_user:
+            inviter_user.credit += application.default_user_credit
+            session.add(inviter_user)
+            session.commit()
+    
+    # Generate tokens for immediate login
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    return Token(
+        access_token=security.create_access_token(
+            new_user.id, 
+            application.id,
+            expires_delta=access_token_expires
+        ),
+        refresh_token=security.create_refresh_token(
+            new_user.id, 
+            application.id,
+            expires_delta=refresh_token_expires
+        ),
+        user_id=str(new_user.id),
+        is_premium=new_user.is_premium,
+        remaining_credit=new_user.credit,
+        is_anonymous=new_user.is_anonymous
     )
 
 @router.post("/verify-email", response_model=VerificationResponse)
