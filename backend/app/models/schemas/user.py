@@ -14,6 +14,7 @@ class UserBase(SQLModel):
     credit: int = Field(default=10, ge=0)
     is_premium: bool = False
     is_verified: bool = False
+    is_anonymous: bool = False
 
 
 class UserCreate(BaseModel):

@@ -127,7 +127,7 @@ def convert_anonymous_to_regular(
     current_user.hashed_password = get_password_hash(user_data.password)
     current_user.is_anonymous = False
     current_user.is_verified = False
-    current_user.credit += 10
+    current_user.credit += application.default_user_credit
     
     session.add(current_user)
     session.commit()
@@ -1840,6 +1840,20 @@ def get_user_invites(
         invitation.email_to = extract_real_email(prefixed_email)
     
     return invitations
+
+@router.post("/delete-account", response_model=Message)
+def delete_account(
+    session: SessionDep,
+    current_user: CurrentUser,
+    language: LanguageDep
+) -> Any:
+    """
+    Delete user account
+    """
+    # Perform account deletion logic here
+    # ...
+
+    return {"message": get_translation("account_deleted", language)}
 
 @router.post("/test-token", response_model=UserPublic)
 def test_token(current_user: CurrentUser) -> Any:
