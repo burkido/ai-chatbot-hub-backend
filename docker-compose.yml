@@ -148,6 +148,16 @@ services:
       - traefik.http.routers.${STACK_NAME?Variable not set}-legal-site-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-legal-site-https.tls.certresolver=le
       - traefik.http.routers.${STACK_NAME?Variable not set}-legal-site-https.middlewares=${STACK_NAME?Variable not set}-www-redirect
+      
+      # Handle legal subdomain (legal.assistlyai.space)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-legal-subdomain-http.rule=Host(`legal.assistlyai.space`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-legal-subdomain-http.entrypoints=http
+      - traefik.http.routers.${STACK_NAME?Variable not set}-legal-subdomain-http.middlewares=https-redirect
+      
+      - traefik.http.routers.${STACK_NAME?Variable not set}-legal-subdomain-https.rule=Host(`legal.assistlyai.space`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-legal-subdomain-https.entrypoints=https
+      - traefik.http.routers.${STACK_NAME?Variable not set}-legal-subdomain-https.tls=true
+      - traefik.http.routers.${STACK_NAME?Variable not set}-legal-subdomain-https.tls.certresolver=le
 
 volumes:
   app-db-data:
