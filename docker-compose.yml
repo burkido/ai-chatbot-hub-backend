@@ -130,6 +130,7 @@ services:
       - default
     volumes:
       - ./static-site:/usr/share/nginx/html
+      - ./static-site/nginx.conf:/etc/nginx/conf.d/default.conf
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik-public
@@ -137,15 +138,16 @@ services:
       
       - traefik.http.services.${STACK_NAME?Variable not set}-legal-site.loadbalancer.server.port=80
       
-      # Handle the domain legal.assistlyai.space
-      - traefik.http.routers.${STACK_NAME?Variable not set}-legal-site-http.rule=Host(`legal.assistlyai.space`)
+      # Handle static policy pages on main domain
+      - traefik.http.routers.${STACK_NAME?Variable not set}-legal-site-http.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && (PathPrefix(`/privacy-policy`) || PathPrefix(`/terms-of-service`) || PathPrefix(`/cookie-policy`) || Path(`/`))
       - traefik.http.routers.${STACK_NAME?Variable not set}-legal-site-http.entrypoints=http
-      - traefik.http.routers.${STACK_NAME?Variable not set}-legal-site-http.middlewares=https-redirect
+      - traefik.http.routers.${STACK_NAME?Variable not set}-legal-site-http.middlewares=https-redirect,${STACK_NAME?Variable not set}-www-redirect
       
-      - traefik.http.routers.${STACK_NAME?Variable not set}-legal-site-https.rule=Host(`legal.assistlyai.space`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-legal-site-https.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && (PathPrefix(`/privacy-policy`) || PathPrefix(`/terms-of-service`) || PathPrefix(`/cookie-policy`) || Path(`/`))
       - traefik.http.routers.${STACK_NAME?Variable not set}-legal-site-https.entrypoints=https
       - traefik.http.routers.${STACK_NAME?Variable not set}-legal-site-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-legal-site-https.tls.certresolver=le
+      - traefik.http.routers.${STACK_NAME?Variable not set}-legal-site-https.middlewares=${STACK_NAME?Variable not set}-www-redirect
 
 volumes:
   app-db-data:
