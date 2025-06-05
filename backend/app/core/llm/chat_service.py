@@ -121,9 +121,10 @@ class ChatService:
                     
                     user_message_with_context = f"""Based on the following medical information:
 
-{context_part}
+                        {context_part}
 
-Please answer my question: {new_message}"""
+                        Please answer my question: {new_message}"""
+
                     langchain_messages.append(HumanMessage(content=user_message_with_context))
             else:
                 # No context available, just add the user's message

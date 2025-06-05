@@ -165,12 +165,8 @@ function DocumentUploader() {
         isClosable: true,
       });
       
-      // Reset form fields but keep index and namespace
+      // Reset only file input, keep other form fields
       setFile(null);
-      setBookTitle('');
-      setAuthor('');
-      setSource('');
-      setTopic('');
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
