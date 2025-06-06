@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Account - Doctor AI</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <nav>
+                <div class="logo">Doctor AI</div>
+                <ul class="nav-links">
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/cookie-policy">Cookie Policy</a></li>
+                    <li><a href="/terms-of-service">Terms of Service</a></li>
+                    <li><a href="/privacy-policy">Privacy Policy</a></li>
+                    <li><a href="/delete-account" class="active">Delete Account</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <h1>Delete Account Request</h1>
+            <p>Request deletion of your Doctor AI account and associated data</p>
+        </div>
+    </section>
+
+    <main>
+        <div class="container">
+            <div class="content">
+                <div class="delete-account-form">
+                    <h2>Account Deletion Request</h2>
+                    <p>We're sorry to see you go. If you proceed with this request, we will permanently delete your account and all associated data within 30 days.</p>
+                    
+                    <div class="warning-notice">
+                        <h3>⚠️ Important Notice</h3>
+                        <p>This action cannot be undone. Once your account is deleted:</p>
+                        <ul>
+                            <li>All your personal data will be permanently removed</li>
+                            <li>Your medical history and consultations will be deleted</li>
+                            <li>You will no longer have access to our services</li>
+                            <li>Any active subscriptions will be cancelled</li>
+                        </ul>
+                    </div>
+
+                    <form id="deleteAccountForm" class="delete-form">
+                        <div class="form-group">
+                            <label for="email">Email Address</label>
+                            <input type="email" id="email" name="email" required 
+                                   placeholder="Enter your registered email address">
+                            <small>Please enter the email address associated with your account</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reason">Reason for Deletion (Optional)</label>
+                            <textarea id="reason" name="reason" rows="4" 
+                                    placeholder="Please let us know why you're deleting your account (optional)"></textarea>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-danger" id="submitBtn">
+                                Request Account Deletion
+                            </button>
+                        </div>
+                    </form>
+
+                    <div id="successMessage" class="success-message" style="display: none;">
+                        <h3>✅ Request Submitted</h3>
+                        <p>Your account deletion request has been submitted successfully. We will process your request within 30 days and send a confirmation email to the provided address.</p>
+                    </div>
+
+                    <div id="errorMessage" class="error-message" style="display: none;">
+                        <h3>❌ Error</h3>
+                        <p id="errorText">There was an error submitting your request. Please try again later.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <ul class="footer-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/cookie-policy">Cookie Policy</a></li>
+                <li><a href="/terms-of-service">Terms</a></li>
+                <li><a href="/privacy-policy">Privacy</a></li>
+                <li><a href="/delete-account">Delete Account</a></li>
+            </ul>
+            <p class="footer-text">&copy; 2025 Doctor AI. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script src="js/delete-account.js"></script>
+</body>
+</html>

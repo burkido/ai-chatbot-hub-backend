@@ -279,6 +279,159 @@ footer {
   margin: 2rem 0;
 }
 
+/* Delete account form styles */
+.delete-account-form {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.warning-notice {
+  background-color: #2d1b1b;
+  border: 1px solid #d32f2f;
+  border-left: 4px solid #d32f2f;
+  padding: 1.5rem;
+  border-radius: 6px;
+  margin: 2rem 0;
+}
+
+.warning-notice h3 {
+  color: #ff6b6b;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.warning-notice ul {
+  margin-left: 1rem;
+  margin-bottom: 0;
+}
+
+.warning-notice li {
+  color: var(--dim-text);
+  margin-bottom: 0.5rem;
+}
+
+.delete-form {
+  margin-top: 2rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  color: var(--light-text);
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.form-group input[type="email"],
+.form-group textarea {
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--dark-card);
+  color: var(--light-text);
+  font-size: 0.9rem;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  font-family: inherit;
+}
+
+.form-group input[type="email"]:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(102, 187, 106, 0.2);
+}
+
+.form-group small {
+  display: block;
+  color: var(--dim-text);
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.form-actions {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.btn-danger {
+  background-color: #d32f2f;
+  color: white;
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  letter-spacing: 0.3px;
+}
+
+.btn-danger:hover {
+  background-color: #b71c1c;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
+}
+
+.btn-danger:disabled {
+  background-color: #666;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.success-message,
+.error-message {
+  padding: 1.5rem;
+  border-radius: 6px;
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.success-message {
+  background-color: #1b5e20;
+  border: 1px solid #4caf50;
+  border-left: 4px solid #4caf50;
+}
+
+.success-message h3 {
+  color: #81c784;
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+.success-message p {
+  color: var(--light-text);
+  margin-bottom: 0;
+}
+
+.error-message {
+  background-color: #2d1b1b;
+  border: 1px solid #d32f2f;
+  border-left: 4px solid #d32f2f;
+}
+
+.error-message h3 {
+  color: #ff6b6b;
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+.error-message p {
+  color: var(--light-text);
+  margin-bottom: 0;
+}
+
 @media (max-width: 768px) {
   .hero {
     padding: 3rem 0;
@@ -302,5 +455,19 @@ footer {
   
   .policy-links {
     grid-template-columns: 1fr;
+  }
+  
+  .delete-account-form {
+    max-width: 100%;
+  }
+  
+  .form-group input[type="email"],
+  .form-group textarea {
+    padding: 0.7rem;
+  }
+  
+  .btn-danger {
+    padding: 0.8rem 1.5rem;
+    font-size: 0.85rem;
   }
 }
