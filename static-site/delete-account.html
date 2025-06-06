@@ -27,17 +27,51 @@
 
     <section class="hero">
         <div class="container">
-            <h1>Delete Account Request</h1>
-            <p>Request deletion of your Doctor AI account and associated data</p>
+            <h1>Delete Your Account</h1>
+            <p>Follow these steps to permanently delete your Doctor AI account</p>
         </div>
     </section>
 
     <main>
         <div class="container">
             <div class="content">
-                <div class="delete-account-form">
-                    <h2>Account Deletion Request</h2>
-                    <p>We're sorry to see you go. If you proceed with this request, we will permanently delete your account and all associated data within 30 days.</p>
+                <div class="delete-account-info">
+                    <h2>How to Delete Your Account</h2>
+                    <p>To delete your Doctor AI account, please follow these simple steps:</p>
+                    
+                    <div class="instructions-box">
+                        <div class="step">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h3>Log into your account</h3>
+                                <p>Sign in to your Doctor AI account using your credentials</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h3>Click the profile icon</h3>
+                                <p>Look for the profile icon in the top right corner of the page</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h3>Scroll to the bottom</h3>
+                                <p>Navigate to the bottom of your profile settings page</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <h3>Click "Delete Account"</h3>
+                                <p>Find and click the "Delete Account" button to permanently remove your account</p>
+                            </div>
+                        </div>
+                    </div>
                     
                     <div class="warning-notice">
                         <h3>⚠️ Important Notice</h3>
@@ -48,37 +82,6 @@
                             <li>You will no longer have access to our services</li>
                             <li>Any active subscriptions will be cancelled</li>
                         </ul>
-                    </div>
-
-                    <form id="deleteAccountForm" class="delete-form">
-                        <div class="form-group">
-                            <label for="email">Email Address</label>
-                            <input type="email" id="email" name="email" required 
-                                   placeholder="Enter your registered email address">
-                            <small>Please enter the email address associated with your account</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="reason">Reason for Deletion (Optional)</label>
-                            <textarea id="reason" name="reason" rows="4" 
-                                    placeholder="Please let us know why you're deleting your account (optional)"></textarea>
-                        </div>
-
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-danger" id="submitBtn">
-                                Request Account Deletion
-                            </button>
-                        </div>
-                    </form>
-
-                    <div id="successMessage" class="success-message" style="display: none;">
-                        <h3>✅ Request Submitted</h3>
-                        <p>Your account deletion request has been submitted successfully. We will process your request within 30 days and send a confirmation email to the provided address.</p>
-                    </div>
-
-                    <div id="errorMessage" class="error-message" style="display: none;">
-                        <h3>❌ Error</h3>
-                        <p id="errorText">There was an error submitting your request. Please try again later.</p>
                     </div>
                 </div>
             </div>
@@ -99,6 +102,5 @@
     </footer>
 
     <script src="js/main.js"></script>
-    <script src="js/delete-account.js"></script>
 </body>
 </html>
