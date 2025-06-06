@@ -36,13 +36,12 @@ document.addEventListener('DOMContentLoaded', function() {
             let response;
             
             try {
-                // Try direct API call to the new public endpoint
+                // Try direct API call to the public endpoint (no application key needed for public endpoints)
                 response = await fetch('https://api.assistlyai.space/api/v1/feedback/public/delete-account', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
-                        'X-Application-Key': 'assistlyai',  // Add application key for API access
                     },
                     mode: 'cors',
                     body: JSON.stringify(requestData)
@@ -56,7 +55,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
                         'X-Requested-With': 'XMLHttpRequest',
-                        'X-Application-Key': 'assistlyai',
                     },
                     body: JSON.stringify(requestData)
                 });
