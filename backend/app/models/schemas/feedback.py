@@ -13,7 +13,7 @@ class FeedbackCreate(SQLModel):
 class FeedbackResponse(SQLModel):
     """Schema for feedback response"""
     id: UUID
-    user_id: UUID
+    user_id: Optional[UUID] = None
     application_id: UUID
     content: str
     created_at: datetime

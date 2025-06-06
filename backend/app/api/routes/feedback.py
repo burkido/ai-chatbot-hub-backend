@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -25,6 +25,31 @@ async def create_feedback(
     # Create new feedback object
     db_feedback = Feedback(
         user_id=current_user.id,
+        application_id=application.id,
+        content=feedback_in.content
+    )
+    
+    # Add to database
+    session.add(db_feedback)
+    session.commit()
+    session.refresh(db_feedback)
+    
+    return db_feedback
+
+
+@router.post("/public/delete-account", response_model=FeedbackResponse)
+async def create_delete_account_request(
+    feedback_in: FeedbackCreate,
+    session: SessionDep,
+    application: ApplicationDep,
+) -> Any:
+    """
+    Create a public delete account request.
+    No authentication required - for anonymous users to request account deletion.
+    """
+    # Create new feedback object for delete account request without user_id
+    db_feedback = Feedback(
+        user_id=None,  # Anonymous request, no user ID
         application_id=application.id,
         content=feedback_in.content
     )

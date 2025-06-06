@@ -33,14 +33,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 content: `Account Deletion Request from: ${email}${reason ? `\n\nReason: ${reason}` : ''}`
             };
             
-            // Send POST request to the API
-            const response = await fetch('https://api.assistlyai.space/api/v1/feedback/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestData)
-            });
+            let response;
+            
+            try {
+                // Try direct API call to the new public endpoint
+                response = await fetch('https://api.assistlyai.space/api/v1/feedback/public/delete-account', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Application-Key': 'assistlyai',  // Add application key for API access
+                    },
+                    mode: 'cors',
+                    body: JSON.stringify(requestData)
+                });
+            } catch (corsError) {
+                // If CORS fails, try with a proxy as fallback
+                console.log('Direct request failed, trying with proxy...');
+                response = await fetch('https://cors-anywhere.herokuapp.com/https://api.assistlyai.space/api/v1/feedback/public/delete-account', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-Application-Key': 'assistlyai',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+            }
             
             if (response.ok) {
                 // Success - show success message and hide form
