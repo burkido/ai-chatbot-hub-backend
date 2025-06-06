@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             
             // Send POST request to the API
-            const response = await fetch('https://api.assistlyai.space/api/v1/feedback', {
+            const response = await fetch('https://api.assistlyai.space/api/v1/feedback/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
