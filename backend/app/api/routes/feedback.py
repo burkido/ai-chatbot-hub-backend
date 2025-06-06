@@ -38,10 +38,9 @@ async def create_feedback(
 
 
 @router.post("/public/delete-account", response_model=FeedbackResponse)
-async def create_delete_account_request(
+async def delete_account_request(
     feedback_in: FeedbackCreate,
     session: SessionDep,
-    application: ApplicationDep,
 ) -> Any:
     """
     Create a public delete account request.
@@ -50,7 +49,7 @@ async def create_delete_account_request(
     # Create new feedback object for delete account request without user_id
     db_feedback = Feedback(
         user_id=None,  # Anonymous request, no user ID
-        application_id=application.id,
+        application_id=None,  # No application required for public requests
         content=feedback_in.content
     )
     
