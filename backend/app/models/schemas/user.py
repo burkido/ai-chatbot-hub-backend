@@ -118,3 +118,12 @@ class UserStatistics(SQLModel):
     """Schema for user statistics response"""
     total_users: int
     by_application: List[ApplicationUserStats]
+
+
+class SubscriptionStatusResponse(SQLModel):
+    """Schema for subscription status check response"""
+    success: bool
+    is_premium: bool
+    user_updated: bool
+    message: str
+    error: Optional[str] = None
