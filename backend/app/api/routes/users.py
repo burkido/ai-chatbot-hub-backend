@@ -1,4 +1,5 @@
 import uuid
+import logging
 from typing import Any
 from datetime import datetime, timedelta
 
@@ -23,11 +24,13 @@ from app.models.schemas.message import Message
 from app.models.schemas.user import (
     UserCreate, UserPublic, UserRegister, UserUpdate, 
     UserUpdateMe, UsersPublic, UpdatePassword, CreditAddRequest,
-    UserStatistics, ApplicationUserStats, UserStatPoint
+    UserStatistics, ApplicationUserStats, UserStatPoint, SubscriptionStatusResponse
 )
 from app.utils import generate_new_account_email, generate_email_verification_otp, send_email
 from app.core.i18n import get_translation
+from app.services.adapty_service import adapty_service
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get(
@@ -281,6 +284,66 @@ def get_user_statistics(
     )
     
     return result
+
+
+@router.post("/check-subscription", response_model=SubscriptionStatusResponse)
+async def check_subscription_status(
+    *, session: SessionDep, current_user: CurrentUser, language: LanguageDep
+) -> Any:
+    """
+    Check the current user's subscription status from Adapty and update premium status.
+    """
+    try:
+        # Use the current user's ID as customer_user_id for Adapty
+        customer_user_id = str(current_user.id)
+        
+        # Call Adapty service to check subscription status
+        adapty_result = await adapty_service.check_subscription_status(customer_user_id)
+        
+        if adapty_result["success"]:
+            is_premium = adapty_result["is_premium"]
+            user_updated = False
+            
+            # Update user's premium status if it has changed
+            if current_user.is_premium != is_premium:
+                current_user.is_premium = is_premium
+                session.add(current_user)
+                session.commit()
+                session.refresh(current_user)
+                user_updated = True
+            
+            # Handle the case where no Adapty profile exists
+            message = adapty_result.get("message", "Subscription status checked successfully")
+            if not user_updated and message == "Subscription status checked successfully":
+                message = "Subscription status checked successfully"
+            elif user_updated:
+                message = f"Premium status updated to {is_premium}"
+            
+            return SubscriptionStatusResponse(
+                success=True,
+                is_premium=is_premium,
+                user_updated=user_updated,
+                message=message
+            )
+        else:
+            # Adapty API call failed
+            return SubscriptionStatusResponse(
+                success=False,
+                is_premium=current_user.is_premium,  # Return current status from DB
+                user_updated=False,
+                message="Failed to check subscription status",
+                error=adapty_result.get("error", "Unknown error")
+            )
+            
+    except Exception as e:
+        logger.error(f"Error in check_subscription_status endpoint: {str(e)}")
+        return SubscriptionStatusResponse(
+            success=False,
+            is_premium=current_user.is_premium,  # Return current status from DB
+            user_updated=False,
+            message="Error occurred while checking subscription",
+            error=str(e)
+        )
 
 
 @router.get("/{user_id}", response_model=UserPublic)
