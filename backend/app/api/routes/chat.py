@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 import logging
+from datetime import datetime, timezone
 
 from app import crud
 from app.api.deps import (
@@ -81,6 +82,12 @@ async def chat_endpoint(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
+        
+        # Update the user's updated_at timestamp
+        user.updated_at = datetime.now(timezone.utc)
+        session.add(user)
+        session.commit()
+        session.refresh(user)
         
         # Process chat request using business logic
         result = await chat_business_logic.process_chat_request(

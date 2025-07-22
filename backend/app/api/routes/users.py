@@ -24,7 +24,8 @@ from app.models.schemas.message import Message
 from app.models.schemas.user import (
     UserCreate, UserPublic, UserRegister, UserUpdate, 
     UserUpdateMe, UsersPublic, UpdatePassword, CreditAddRequest,
-    UserStatistics, ApplicationUserStats, UserStatPoint, SubscriptionStatusResponse
+    UserStatistics, ApplicationUserStats, UserStatPoint, SubscriptionStatusResponse,
+    TestSubscriptionRequest
 )
 from app.utils import generate_new_account_email, generate_email_verification_otp, send_email
 from app.core.i18n import get_translation
@@ -299,6 +300,8 @@ async def check_subscription_status(
         
         # Call Adapty service to check subscription status
         adapty_result = await adapty_service.check_subscription_status(customer_user_id)
+        # Debug: Print full Adapty response
+        print(f"Adapty response for user {customer_user_id}: {adapty_result}")
         
         if adapty_result["success"]:
             is_premium = adapty_result["is_premium"]
@@ -342,6 +345,48 @@ async def check_subscription_status(
             is_premium=current_user.is_premium,  # Return current status from DB
             user_updated=False,
             message="Error occurred while checking subscription",
+            error=str(e)
+        )
+
+
+@router.post("/test-subscription", response_model=SubscriptionStatusResponse)
+async def test_subscription_status(
+    *, session: SessionDep, request: TestSubscriptionRequest, language: LanguageDep
+) -> Any:
+    """
+    Test endpoint for checking subscription status using user ID in request body.
+    This endpoint is for testing purposes and doesn't require authentication.
+    """
+    try:
+        # Directly use the provided user_id for Adapty
+        customer_user_id = request.user_id
+        adapty_result = await adapty_service.check_subscription_status(customer_user_id)
+        print(f"[TEST] Adapty response for user {customer_user_id}: {adapty_result}")
+
+        if adapty_result["success"]:
+            is_premium = adapty_result["is_premium"]
+            message = adapty_result.get("message", "Subscription status checked successfully")
+            return SubscriptionStatusResponse(
+                success=True,
+                is_premium=is_premium,
+                user_updated=False,
+                message=f"[TEST] {message} for user_id {customer_user_id}"
+            )
+        else:
+            return SubscriptionStatusResponse(
+                success=False,
+                is_premium=False,
+                user_updated=False,
+                message=f"[TEST] Failed to check subscription status for user_id {customer_user_id}",
+                error=adapty_result.get("error", "Unknown error")
+            )
+    except Exception as e:
+        logger.error(f"Error in test_subscription_status endpoint: {str(e)}")
+        return SubscriptionStatusResponse(
+            success=False,
+            is_premium=False,
+            user_updated=False,
+            message="[TEST] Error occurred while checking subscription",
             error=str(e)
         )
 
