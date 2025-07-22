@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 import logging
 from datetime import datetime, timezone
+from functools import lru_cache
 
 from app import crud
 from app.api.deps import (
@@ -23,24 +24,45 @@ router = APIRouter()
 # Initialize business logic
 chat_business_logic = ChatBusinessLogic()
 
+@lru_cache(maxsize=10)
+def get_chat_service_cached(
+    provider_name: str = "openai",
+    assistant_type: str = ASSISTANT_TYPE_DOCTOR
+) -> ChatService:
+    """
+    Cached factory for ChatService instances
+    
+    This function creates and caches ChatService instances using FastAPI's built-in
+    lru_cache decorator. This provides better performance than a singleton while
+    avoiding the pitfalls of global state.
+    
+    Args:
+        provider_name: The LLM provider to use
+        assistant_type: The type of assistant to use
+    
+    Returns:
+        Cached ChatService instance
+    """
+    return get_chat_service_instance(provider_name, assistant_type)
+
 def get_chat_service(
     assistant_type: Optional[str] = Query(None, description="Type of assistant to use")
 ) -> ChatService:
     """
     Dependency for getting ChatService with the specified assistant type
     
-    This function returns a singleton instance of ChatService for the specified assistant type,
-    ensuring that only one instance exists throughout the application's lifetime for each type.
+    This function returns a cached instance of ChatService for the specified assistant type,
+    using FastAPI's dependency injection system with lru_cache for efficient caching.
     
     Args:
         assistant_type: The type of assistant to use (defaults to None, which will use DOCTOR)
     
     Returns:
-        ChatService singleton instance
+        ChatService cached instance
     """
     # Use the doctor assistant type as default if none specified
     actual_type = assistant_type or ASSISTANT_TYPE_DOCTOR
-    return get_chat_service_instance("openai", actual_type)
+    return get_chat_service_cached("openai", actual_type)
 
 
 @router.post("/", response_model=ChatResponse)
