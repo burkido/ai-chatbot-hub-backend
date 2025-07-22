@@ -127,3 +127,8 @@ class SubscriptionStatusResponse(SQLModel):
     user_updated: bool
     message: str
     error: Optional[str] = None
+
+
+class TestSubscriptionRequest(SQLModel):
+    """Schema for testing subscription status with userId"""
+    user_id: str

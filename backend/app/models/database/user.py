@@ -1,5 +1,6 @@
 import uuid
 from typing import Optional
+from datetime import datetime, timezone
 from sqlmodel import Field, SQLModel
 from sqlalchemy import UniqueConstraint
 
@@ -18,6 +19,8 @@ class User(SQLModel, table=True):
     is_verified: bool = Field(default=False)
     is_anonymous: bool = Field(default=False)
     hashed_password: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Adding a UniqueConstraint via SQLAlchemy (using correct tuple syntax)
     __table_args__ = (
