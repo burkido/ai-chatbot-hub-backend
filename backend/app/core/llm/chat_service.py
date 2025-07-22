@@ -11,9 +11,6 @@ from app.core.translation import TranslationService, TranslationError
 # Configure logger
 logger = logging.getLogger(__name__)
 
-# Store singleton instances - key format: f"{provider_name}:{assistant_type}"
-_CHAT_SERVICE_INSTANCES = {}
-
 # Configuration constants
 DEFAULT_MAX_SOURCES = 3
 DEFAULT_MAX_CONTEXT_LENGTH = 4000
@@ -261,14 +258,14 @@ class ChatService:
                 source_knowledge = "\n".join([doc.page_content for doc, _ in filtered_results])
                 
                 augmented_prompt = f"""Contexts:
-{source_knowledge}
+                    {source_knowledge}
 
-Query: {query}"""
+                    Query: {query}"""
             else:
-                # No results found - let the model know it should use general knowledge
-                augmented_prompt = f"""No specific information found in the knowledge database for this query.
+                    # No results found - let the model know it should use general knowledge
+                    augmented_prompt = f"""No specific information found in the knowledge database for this query. Answer with your best knowledge and expertise.
 
-Query: {query}"""
+                    Query: {query}"""
             
             logger.debug(f"Augmented prompt with {len(sources)} sources (threshold: {similarity_threshold})")
             return augmented_prompt, sources
@@ -285,11 +282,10 @@ def get_chat_service_instance(
     **kwargs
 ) -> ChatService:
     """
-    Factory function to get a ChatService with the specified provider and assistant type
+    Factory function to create a ChatService with the specified provider and assistant type
     
-    This implementation follows the singleton pattern, ensuring that only one
-    instance of ChatService exists for each provider+assistant type throughout 
-    the application's lifetime.
+    This implementation creates a new ChatService instance each time it's called.
+    Caching is handled at the dependency injection level using @lru_cache.
     
     Args:
         provider_name: Name of the provider to use
@@ -297,7 +293,7 @@ def get_chat_service_instance(
         **kwargs: Additional arguments to pass to the provider constructor
         
     Returns:
-        A singleton instance of ChatService with the specified provider and assistant type
+        A new instance of ChatService with the specified provider and assistant type
         
     Raises:
         ValueError: If invalid provider or assistant type is specified
@@ -312,45 +308,14 @@ def get_chat_service_instance(
         if not assistant_type:
             raise ValueError("Assistant type cannot be empty")
         
-        # Create a composite key for the instance cache
-        instance_key = f"{provider_name}:{assistant_type.lower()}"
-        
-        # If a chat service instance for this provider and assistant type already exists, return it
-        if instance_key in _CHAT_SERVICE_INSTANCES:
-            logger.debug(f"Returning existing ChatService instance: {instance_key}")
-            return _CHAT_SERVICE_INSTANCES[instance_key]
-        
-        # Otherwise, create a new instance with the appropriate provider and assistant type
-        logger.info(f"Creating new ChatService instance: {instance_key}")
+        # Create a new instance with the appropriate provider and assistant type
+        logger.info(f"Creating new ChatService instance: {provider_name}:{assistant_type.lower()}")
         llm_provider = get_llm_provider(provider_name, **kwargs)
         chat_service = ChatService(llm_provider, assistant_type=assistant_type)
-        _CHAT_SERVICE_INSTANCES[instance_key] = chat_service
         
-        logger.info(f"ChatService instance created and cached: {instance_key}")
+        logger.info(f"ChatService instance created: {provider_name}:{assistant_type.lower()}")
         return chat_service
         
     except Exception as e:
         logger.error(f"Failed to get ChatService instance: {str(e)}")
         raise
-
-
-def clear_chat_service_cache() -> None:
-    """
-    Clear the chat service instance cache
-    
-    This function is useful for testing or when you need to force
-    recreation of chat service instances.
-    """
-    global _CHAT_SERVICE_INSTANCES
-    logger.info(f"Clearing {len(_CHAT_SERVICE_INSTANCES)} cached ChatService instances")
-    _CHAT_SERVICE_INSTANCES.clear()
-
-
-def get_cached_instance_count() -> int:
-    """
-    Get the number of cached ChatService instances
-    
-    Returns:
-        Number of cached instances
-    """
-    return len(_CHAT_SERVICE_INSTANCES)
