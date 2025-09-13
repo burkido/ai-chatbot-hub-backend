@@ -82,9 +82,8 @@ class Settings(BaseSettings):
     EMAILS_FROM_EMAIL: str | None = None
     EMAILS_FROM_NAME: str | None = None
 
-    # Email API configuration (Mailgun)
-    MAILGUN_API_KEY: str = ""
-    MAILGUN_DOMAIN: str = "mail.assistlyai.space"
+    # Email API configuration (Mailtrap Production)
+    MAILTRAP_API_TOKEN: str = ""
 
     # Translation API settings
     GOOGLE_TRANSLATE_API_KEY: str = ""  # Set this via env var
@@ -100,7 +99,7 @@ class Settings(BaseSettings):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def emails_enabled(self) -> bool:
-        return bool(self.MAILGUN_API_KEY and self.MAILGUN_DOMAIN)
+        return bool(self.MAILTRAP_API_TOKEN)
 
     # TODO: update type to EmailStr when sqlmodel supports it
     EMAIL_TEST_USER: str = "test@example.com"

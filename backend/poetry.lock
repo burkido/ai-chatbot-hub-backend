@@ -1374,6 +1374,20 @@ htmlsoup = ["BeautifulSoup4"]
 source = ["Cython (>=3.0.11)"]
 
 [[package]]
+name = "mailtrap"
+version = "2.1.0"
+description = "Official mailtrap.io API client"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "mailtrap-2.1.0-py3-none-any.whl", hash = "sha256:6cef8dc02734e3e3a16161e38d184ea6971e925673c731c8ac968b88556f069e"},
+    {file = "mailtrap-2.1.0.tar.gz", hash = "sha256:22fccf3cd912a7e47d4a1bb86865cf0f0587d59dc73bc78d9e77d596767f5b85"},
+]
+
+[package.dependencies]
+requests = ">=2.26.0"
+
+[[package]]
 name = "mako"
 version = "1.3.5"
 description = "A super-fast templating language that borrows the best ideas from the existing templating languages."
@@ -3428,4 +3442,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.13"
-content-hash = "5d9694d2a97de3a7c6ed063ec2a95ce679a0eda0f5a5216ac55f78768aae7f0e"
+content-hash = "0211c7ec6ff719f7da8df8b9befb55af8dc1d8ac7e51e1bfc6db1e0a28055dfe"

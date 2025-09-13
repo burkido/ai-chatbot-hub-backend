@@ -133,9 +133,8 @@ You can set several variables, like:
 * `SECRET_KEY`: The secret key for the FastAPI project, used to sign tokens.
 * `FIRST_SUPERUSER`: The email of the first superuser, this superuser will be the one that can create new users.
 * `FIRST_SUPERUSER_PASSWORD`: The password of the first superuser.
-* `SMTP_HOST`: The SMTP server host to send emails, this would come from your email provider (E.g. Mailgun, Sparkpost, Sendgrid, etc).
-* `SMTP_USER`: The SMTP server user to send emails.
-* `SMTP_PASSWORD`: The SMTP server password to send emails.
+* `MAILTRAP_API_TOKEN`: The API token for Mailtrap email service.
+* `MAILTRAP_API_URL`: The API URL for Mailtrap email service (e.g., https://sandbox.api.mailtrap.io/api/send/YOUR_INBOX_ID).
 * `EMAILS_FROM_EMAIL`: The email account to send emails from.
 * `POSTGRES_SERVER`: The hostname of the PostgreSQL server. You can leave the default of `db`, provided by the same Docker Compose. You normally wouldn't need to change this unless you are using a third-party provider.
 * `POSTGRES_PORT`: The port of the PostgreSQL server. You can leave the default. You normally wouldn't need to change this unless you are using a third-party provider.

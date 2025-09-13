@@ -31,6 +31,7 @@ pandas = "2.0.0"
 langchain = "0.3.2"
 langchain_openai = "0.2.11"
 langchain_pinecone = "0.2.0"
+mailtrap = "2.1.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"

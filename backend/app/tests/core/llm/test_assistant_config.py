@@ -8,7 +8,6 @@ from app.core.llm.assistant_config import (
     get_available_assistant_types,
     get_config_summary,
     ASSISTANT_TYPE_DOCTOR,
-    ASSISTANT_TYPE_LEGAL,
     ASSISTANT_TYPE_GENERAL,
     ASSISTANT_CONFIGS
 )

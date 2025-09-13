@@ -9,6 +9,8 @@ from jwt.exceptions import InvalidTokenError
 from app.core.config import settings
 from app.core.i18n import get_translation, DEFAULT_LANGUAGE
 
+import mailtrap as mt
+
 @dataclass
 class EmailData:
     html_content: str
@@ -28,43 +30,38 @@ def send_email(
     html_content: str = "",
     project_name: str = settings.PROJECT_NAME,
 ) -> None:
-    """Send email using Mailgun API."""
     assert settings.emails_enabled, "no provided configuration for email variables"
     
-    import requests
-    
-    # Get API key from environment variable
-    api_key = settings.MAILGUN_API_KEY
-    
-    # Mailgun domain and API endpoint
-    domain = settings.MAILGUN_DOMAIN
-    api_url = f"https://api.eu.mailgun.net/v3/{domain}/messages"
-    
-    # Prepare email data with postmaster as sender
-    data = {
-        "from": f"{project_name} <postmaster@{domain}>",
-        "to": email_to,
-        "subject": subject,
-    }
-    
-    # Include either HTML or text content
-    if html_content:
-        data["html"] = html_content
-    else:
-        data["text"] = "Email content not provided"
-    
-    # Send request to Mailgun API
-    response = requests.post(
-        api_url,
-        auth=("api", api_key),
-        data=data
-    )
-    
-    # Log the response
-    logging.info(f"send email result: {response.status_code} - {response.text}")
-    
-    # Raise an exception if the request failed
-    response.raise_for_status()
+    try:
+        # Create mail object using Mailtrap SDK
+        mail = mt.Mail(
+            sender=mt.Address(
+                email=settings.EMAILS_FROM_EMAIL,
+                name=project_name
+            ),
+            to=[mt.Address(email=email_to)],
+            subject=subject,
+            category="Application Email"
+        )
+        
+        # Set content (HTML or text)
+        if html_content:
+            mail.html = html_content
+        else:
+            mail.text = "Email content not provided"
+        
+        # Create client and send email
+        client = mt.MailtrapClient(token=settings.MAILTRAP_API_TOKEN)
+        response = client.send(mail)
+        
+        # Log the response
+        logging.info(f"Email sent successfully: {response}")
+        print(f"Email sent successfully to {email_to}: {response}")
+        
+    except Exception as e:
+        logging.error(f"Failed to send email: {str(e)}")
+        print(f"Failed to send email: {str(e)}")
+        raise
 
 def generate_test_email(email_to: str, deeplink: str, project_name: str, language: str = DEFAULT_LANGUAGE) -> EmailData:
     subject = get_translation("test_email_subject", language, project_name=project_name)
