@@ -130,10 +130,8 @@ def convert_anonymous_to_regular(
     current_user.credit += application.default_user_credit
     
     session.add(current_user)
-    session.commit()
-    session.refresh(current_user)
     
-    # Create and send verification email
+    # Create verification email
     verification = Verification.generate(
         application_id=application.id,
         email=real_email,
@@ -141,9 +139,8 @@ def convert_anonymous_to_regular(
         package_name=application.package_name
     )
     session.add(verification)
-    session.commit()
     
-    # Send verification email
+    # Prepare verification email data before committing to database
     email_data = generate_email_verification_otp(
         email_to=real_email,
         otp=verification.code,
@@ -151,12 +148,27 @@ def convert_anonymous_to_regular(
         project_name=application.name if application.name else settings.PROJECT_NAME,
         language=language
     )
-    send_email(
-        email_to=real_email,
-        subject=email_data.subject,
-        html_content=email_data.html_content,
-        project_name=application.name if application.name else settings.PROJECT_NAME
-    )
+    
+    try:
+        # Send verification email BEFORE committing to database
+        send_email(
+            email_to=real_email,
+            subject=email_data.subject,
+            html_content=email_data.html_content,
+            project_name=application.name if application.name else settings.PROJECT_NAME
+        )
+        
+        # Only commit to database if email sending succeeds
+        session.commit()
+        session.refresh(current_user)
+        
+    except Exception as e:
+        # If email sending fails, rollback the transaction
+        session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send verification email: {str(e)}"
+        )
     
     # Generate new tokens
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -553,9 +565,8 @@ def register(
         package_name=application.package_name
     )
     session.add(verification)
-    session.commit()
     
-    # Send verification email
+    # Prepare verification email data before committing to database
     email_data = generate_email_verification_otp(
         email_to=real_email,  # Send to real email
         otp=verification.code,
@@ -563,12 +574,26 @@ def register(
         project_name=application.name if application.name else settings.PROJECT_NAME,
         language=language  
     )
-    send_email(
-        email_to=real_email,  # Send to real email
-        subject=email_data.subject,
-        html_content=email_data.html_content,
-        project_name=application.name if application.name else settings.PROJECT_NAME
-    )
+    
+    try:
+        # Send verification email BEFORE committing to database
+        send_email(
+            email_to=real_email,  # Send to real email
+            subject=email_data.subject,
+            html_content=email_data.html_content,
+            project_name=application.name if application.name else settings.PROJECT_NAME
+        )
+        
+        # Only commit to database if email sending succeeds
+        session.commit()
+        
+    except Exception as e:
+        # If email sending fails, rollback the transaction
+        session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send verification email: {str(e)}"
+        )
     
     return RegisterResponse(id=str(new_user.id))
 
@@ -802,113 +827,6 @@ def refresh_access_token(
         is_anonymous=user.is_anonymous
     )
 
-@router.post("/register")
-def register(
-    session: SessionDep,
-    user_create: UserCreate,
-    language: LanguageDep,
-    application: ApplicationDep
-) -> RegisterResponse:
-    """
-    Register a new user with optional invite logic
-    """
-    # Check if this email is already registered with this application
-    user = crud.get_user_by_email(
-        session=session, 
-        email=user_create.email,
-        application_id=application.id
-    )
-    
-    if user:
-        raise HTTPException(
-            status_code=409,
-            detail=get_translation("user_exists", language),
-        )
-    
-    # If invited, validate the invitation code
-    if user_create.invite_code and user_create.inviter_id:
-        # Find the invitation
-        statement = (
-            select(Invitation)
-            .where(Invitation.code == user_create.invite_code)
-            .where(Invitation.inviter_id == UUID(user_create.inviter_id))
-            .where(Invitation.application_id == application.id)
-        )
-        invitation = session.exec(statement).first()
-        
-        if not invitation:
-            raise HTTPException(
-                status_code=404, 
-                detail=get_translation("invalid_token", language)
-            )
-        
-        if invitation.is_used:
-            raise HTTPException(
-                status_code=400, 
-                detail=get_translation("invitation_code_used", language)
-            )
-        
-        if invitation.is_expired():
-            raise HTTPException(
-                status_code=400, 
-                detail=get_translation("invitation_code_expired", language)
-            )
-        
-        # Mark invitation as used using the consume method
-        invitation.consume()
-        session.add(invitation)
-        
-        # Add bonus credits for invited user
-        user_create.credit = application.default_user_credit * 2  # Double the default credits for invited users
-
-    # Set application_id on the user before creation
-    # Ensure default credit comes from the application if not specifically set
-    if user_create.credit == 10:  # This is the default from the model
-        user_create.credit = application.default_user_credit
-    
-    # Store original email for sending verification
-    real_email = user_create.email
-    
-    # Create the new user (the create_user function will handle email prefixing)
-    new_user = crud.create_user(session=session, user_create=user_create, application_id=application.id)
-
-    # Give credits to inviter if invitation is valid
-    if user_create.invite_code and user_create.inviter_id:
-        inviter_user = crud.get_user_by_id(
-            session=session, 
-            user_id=user_create.inviter_id,
-            application_id=application.id
-        )
-        if inviter_user:
-            inviter_user.credit += application.default_user_credit
-            session.add(inviter_user)
-    
-    # Create and send Verification for email verification
-    verification = Verification.generate(
-        application_id=application.id,
-        email=real_email,
-        user_id=str(new_user.id),
-        package_name=application.package_name
-    )
-    session.add(verification)
-    session.commit()
-    
-    # Send verification email
-    email_data = generate_email_verification_otp(
-        email_to=real_email,  # Send to real email
-        otp=verification.code,
-        deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
-        project_name=application.name if application.name else settings.PROJECT_NAME,
-        language=language  
-    )
-    send_email(
-        email_to=real_email,  # Send to real email
-        subject=email_data.subject,
-        html_content=email_data.html_content,
-        project_name=application.name if application.name else settings.PROJECT_NAME
-    )
-    
-    return RegisterResponse(id=str(new_user.id))
 
 @router.post("/register-google", response_model=Token)
 def google_register(
@@ -1139,114 +1057,6 @@ def refresh_access_token(
         remaining_credit=user.credit,
         is_anonymous=user.is_anonymous
     )
-
-@router.post("/register")
-def register(
-    session: SessionDep,
-    user_create: UserCreate,
-    language: LanguageDep,
-    application: ApplicationDep
-) -> RegisterResponse:
-    """
-    Register a new user with optional invite logic
-    """
-    # Check if this email is already registered with this application
-    user = crud.get_user_by_email(
-        session=session, 
-        email=user_create.email,
-        application_id=application.id
-    )
-    
-    if user:
-        raise HTTPException(
-            status_code=409,
-            detail=get_translation("user_exists", language),
-        )
-    
-    # If invited, validate the invitation code
-    if user_create.invite_code and user_create.inviter_id:
-        # Find the invitation
-        statement = (
-            select(Invitation)
-            .where(Invitation.code == user_create.invite_code)
-            .where(Invitation.inviter_id == UUID(user_create.inviter_id))
-            .where(Invitation.application_id == application.id)
-        )
-        invitation = session.exec(statement).first()
-        
-        if not invitation:
-            raise HTTPException(
-                status_code=404, 
-                detail=get_translation("invalid_token", language)
-            )
-        
-        if invitation.is_used:
-            raise HTTPException(
-                status_code=400, 
-                detail=get_translation("invitation_code_used", language)
-            )
-        
-        if invitation.is_expired():
-            raise HTTPException(
-                status_code=400, 
-                detail=get_translation("invitation_code_expired", language)
-            )
-        
-        # Mark invitation as used using the consume method
-        invitation.consume()
-        session.add(invitation)
-        
-        # Add bonus credits for invited user
-        user_create.credit = application.default_user_credit * 2  # Double the default credits for invited users
-
-    # Set application_id on the user before creation
-    # Ensure default credit comes from the application if not specifically set
-    if user_create.credit == 10:  # This is the default from the model
-        user_create.credit = application.default_user_credit
-    
-    # Store original email for sending verification
-    real_email = user_create.email
-    
-    # Create the new user (the create_user function will handle email prefixing)
-    new_user = crud.create_user(session=session, user_create=user_create, application_id=application.id)
-
-    # Give credits to inviter if invitation is valid
-    if user_create.invite_code and user_create.inviter_id:
-        inviter_user = crud.get_user_by_id(
-            session=session, 
-            user_id=user_create.inviter_id,
-            application_id=application.id
-        )
-        if inviter_user:
-            inviter_user.credit += application.default_user_credit
-            session.add(inviter_user)
-    
-    # Create and send Verification for email verification
-    verification = Verification.generate(
-        application_id=application.id,
-        email=real_email,
-        user_id=str(new_user.id),
-        package_name=application.package_name
-    )
-    session.add(verification)
-    session.commit()
-    
-    # Send verification email
-    email_data = generate_email_verification_otp(
-        email_to=real_email,  # Send to real email
-        otp=verification.code,
-        deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
-        project_name=application.name if application.name else settings.PROJECT_NAME,
-        language=language  
-    )
-    send_email(
-        email_to=real_email,  # Send to real email
-        subject=email_data.subject,
-        html_content=email_data.html_content,
-        project_name=application.name if application.name else settings.PROJECT_NAME
-    )
-    
-    return RegisterResponse(id=str(new_user.id))
 
 @router.post("/register-google", response_model=Token)
 def google_register(
@@ -1486,21 +1296,34 @@ def verify_email_resend(
         package_name=application.package_name
     )
     session.add(new_verification)
-    session.commit()
     
-    # Send verification email with localized subject
+    # Prepare verification email data before committing to database
     email_data = generate_email_verification_otp(
         email_to=real_email,  # Send to real email
         otp=new_verification.code,
         deeplink=f"{application.app_deeplink_url}/verify/{new_verification.code}",
         language=language  
     )
-    send_email(
-        email_to=real_email,  # Send to real email
-        subject=email_data.subject,
-        html_content=email_data.html_content,
-        project_name=application.name if application.name else settings.PROJECT_NAME
-    )
+    
+    try:
+        # Send verification email BEFORE committing to database
+        send_email(
+            email_to=real_email,  # Send to real email
+            subject=email_data.subject,
+            html_content=email_data.html_content,
+            project_name=application.name if application.name else settings.PROJECT_NAME
+        )
+        
+        # Only commit to database if email sending succeeds
+        session.commit()
+        
+    except Exception as e:
+        # If email sending fails, rollback the transaction
+        session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send verification email: {str(e)}"
+        )
     
     return Message(message=get_translation("new_verification_sent", language))
 
@@ -1548,10 +1371,8 @@ def recover_password(
         user_id=str(user.id)
     )
     session.add(reset_token)
-    session.commit()
-    session.refresh(reset_token)
     
-    # Generate email with the 6-digit token
+    # Prepare reset password email data before committing to database
     email_data = generate_reset_password_email(
         email_to=real_email,  # Use real email
         email=real_email,  # Use real email
@@ -1561,12 +1382,26 @@ def recover_password(
         language=language
     )
     
-    send_email(
-        email_to=real_email,  # Send to real email
-        subject=email_data.subject,
-        html_content=email_data.html_content,
-        project_name=application.name if application.name else settings.PROJECT_NAME
-    )
+    try:
+        # Send reset password email BEFORE committing to database
+        send_email(
+            email_to=real_email,  # Send to real email
+            subject=email_data.subject,
+            html_content=email_data.html_content,
+            project_name=application.name if application.name else settings.PROJECT_NAME
+        )
+        
+        # Only commit to database if email sending succeeds
+        session.commit()
+        session.refresh(reset_token)
+        
+    except Exception as e:
+        # If email sending fails, rollback the transaction
+        session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send reset password email: {str(e)}"
+        )
     
     return Message(message="Password recovery email sent")
 
@@ -1737,13 +1572,11 @@ def invite_friend(
     )
     
     session.add(invitation)
-    session.commit()
-    session.refresh(invitation)
     
     # Generate the deeplink with the invitation code
     deeplink = f"{application.app_deeplink_url}/register/{current_user.id}/{invitation.code}"
     
-    # Send invitation email with localized subject
+    # Prepare invitation email data before committing to database
     email_data = generate_invite_friend_email(
         email_to=invite_create.email_to,
         username=current_user_real_email,
@@ -1751,12 +1584,27 @@ def invite_friend(
         deeplink=deeplink,
         language=language  
     )
-    send_email(
-        email_to=invite_create.email_to,
-        subject=email_data.subject,
-        html_content=email_data.html_content,
-        project_name=application.name if application.name else settings.PROJECT_NAME
-    )
+    
+    try:
+        # Send invitation email BEFORE committing to database
+        send_email(
+            email_to=invite_create.email_to,
+            subject=email_data.subject,
+            html_content=email_data.html_content,
+            project_name=application.name if application.name else settings.PROJECT_NAME
+        )
+        
+        # Only commit to database if email sending succeeds
+        session.commit()
+        session.refresh(invitation)
+        
+    except Exception as e:
+        # If email sending fails, rollback the transaction
+        session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send invitation email: {str(e)}"
+        )
     
     return invitation
 
