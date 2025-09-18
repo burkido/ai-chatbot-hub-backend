@@ -1582,6 +1582,7 @@ def invite_friend(
         username=current_user_real_email,
         inviter_name=current_user_real_email,
         deeplink=deeplink,
+        project_name=application.name if application.name else settings.PROJECT_NAME,
         language=language  
     )
     
