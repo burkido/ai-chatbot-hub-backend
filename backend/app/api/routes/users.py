@@ -216,7 +216,6 @@ def register_user(session: SessionDep, language: LanguageDep, application: Appli
     email_data = generate_email_verification_otp(
         email_to=user_in.email, 
         otp=verification.code,
-        deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
         project_name=application.name if application.name else settings.PROJECT_NAME,
         language=language
     )

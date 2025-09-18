@@ -117,7 +117,7 @@ def generate_invite_friend_email(
     )
     return EmailData(html_content=html_content, subject=subject)
 
-def generate_email_verification_otp(email_to: str, otp: str, deeplink: str, project_name: str, language: str = DEFAULT_LANGUAGE) -> EmailData:
+def generate_email_verification_otp(email_to: str, otp: str, project_name: str, language: str = DEFAULT_LANGUAGE) -> EmailData:
     subject = get_translation("email_verification_subject", language, project_name=project_name)
     html_content = render_email_template(
         template_name="verify_user.html",
@@ -126,7 +126,6 @@ def generate_email_verification_otp(email_to: str, otp: str, deeplink: str, proj
             "email": email_to,
             "verification_code": otp,
             "valid_minutes": 10,
-            "verification_url": deeplink,
         },
     )
     return EmailData(html_content=html_content, subject=subject)

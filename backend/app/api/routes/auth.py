@@ -144,7 +144,6 @@ def convert_anonymous_to_regular(
     email_data = generate_email_verification_otp(
         email_to=real_email,
         otp=verification.code,
-        deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
         project_name=application.name if application.name else settings.PROJECT_NAME,
         language=language
     )
@@ -242,7 +241,7 @@ def login(
         email_data = generate_email_verification_otp(
             email_to=real_email, 
             otp=otp.code,
-            deeplink=f"{application.app_deeplink_url}/verify/{otp.code}",
+            project_name=application.name if application.name else settings.PROJECT_NAME,
             language=language  
         )
         send_email(
@@ -441,7 +440,7 @@ def refresh_access_token(
         email_data = generate_email_verification_otp(
             email_to=real_email, 
             otp=verification.code,
-            deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
+            project_name=application.name if application.name else settings.PROJECT_NAME,
             language=language  
         )
         send_email(
@@ -570,7 +569,6 @@ def register(
     email_data = generate_email_verification_otp(
         email_to=real_email,  # Send to real email
         otp=verification.code,
-        deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
         project_name=application.name if application.name else settings.PROJECT_NAME,
         language=language  
     )
@@ -792,7 +790,7 @@ def refresh_access_token(
         email_data = generate_email_verification_otp(
             email_to=real_email, 
             otp=verification.code,
-            deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
+            project_name=application.name if application.name else settings.PROJECT_NAME,
             language=language  
         )
         send_email(
@@ -1023,7 +1021,7 @@ def refresh_access_token(
         email_data = generate_email_verification_otp(
             email_to=real_email, 
             otp=verification.code,
-            deeplink=f"{application.app_deeplink_url}/verify/{verification.code}",
+            project_name=application.name if application.name else settings.PROJECT_NAME,
             language=language  
         )
         send_email(
@@ -1301,7 +1299,7 @@ def verify_email_resend(
     email_data = generate_email_verification_otp(
         email_to=real_email,  # Send to real email
         otp=new_verification.code,
-        deeplink=f"{application.app_deeplink_url}/verify/{new_verification.code}",
+        project_name=application.name if application.name else settings.PROJECT_NAME,
         language=language  
     )
     
@@ -1582,6 +1580,7 @@ def invite_friend(
         username=current_user_real_email,
         inviter_name=current_user_real_email,
         deeplink=deeplink,
+        project_name=application.name if application.name else settings.PROJECT_NAME,
         language=language  
     )
     
